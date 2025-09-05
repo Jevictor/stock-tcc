@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,106 +12,124 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Search, BarChart3, AlertTriangle, Package, Filter } from "lucide-react";
+import { Search, BarChart3, AlertTriangle, Package, Filter, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
-const mockStockReport = [
-  {
-    id: "1",
-    code: "MSE001",
-    name: "Mouse Gamer RGB",
-    category: "Periféricos",
-    supplier: "TechParts Ltda",
-    currentStock: 25,
-    minStock: 10,
-    maxStock: 100,
-    avgCost: 45.90,
-    totalValue: 1147.50,
-    status: "normal",
-    lastMovement: "2024-01-15"
-  },
-  {
-    id: "2",
-    code: "TEC002",
-    name: "Teclado Mecânico",
-    category: "Periféricos",
-    supplier: "ComponenteX",
-    currentStock: 8,
-    minStock: 15,
-    maxStock: 50,
-    avgCost: 120.00,
-    totalValue: 960.00,
-    status: "low",
-    lastMovement: "2024-01-14"
-  },
-  {
-    id: "3",
-    code: "MON003",
-    name: "Monitor 24\"",
-    category: "Monitores",
-    supplier: "Displays Pro",
-    currentStock: 12,
-    minStock: 5,
-    maxStock: 30,
-    avgCost: 280.00,
-    totalValue: 3360.00,
-    status: "normal",
-    lastMovement: "2024-01-13"
-  },
-  {
-    id: "4",
-    code: "CAB004",
-    name: "Cabo USB-C",
-    category: "Acessórios",
-    supplier: "TechParts Ltda",
-    currentStock: 3,
-    minStock: 20,
-    maxStock: 100,
-    avgCost: 15.90,
-    totalValue: 47.70,
-    status: "critical",
-    lastMovement: "2024-01-12"
-  },
-  {
-    id: "5",
-    code: "ADP005",
-    name: "Adaptador HDMI",
-    category: "Acessórios",
-    supplier: "ComponenteX",
-    currentStock: 0,
-    minStock: 15,
-    maxStock: 50,
-    avgCost: 25.50,
-    totalValue: 0.00,
-    status: "out_of_stock",
-    lastMovement: "2024-01-10"
-  }
-];
-
-const categories = ["Todos", "Periféricos", "Monitores", "Acessórios", "Computadores"];
-const suppliers = ["Todos", "TechParts Ltda", "ComponenteX", "Displays Pro"];
-const statusFilters = ["Todos", "normal", "low", "critical", "out_of_stock"];
+type StockReportItem = Tables<'products'> & {
+  categories?: { name: string } | null;
+  suppliers?: { name: string } | null;
+  last_movement?: string | null;
+};
 
 export const StockReport = () => {
-  const [stockData] = useState(mockStockReport);
+  const { user } = useAuth();
+  const [stockData, setStockData] = useState<StockReportItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Todos");
   const [supplierFilter, setSupplierFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState("Todos");
 
+  useEffect(() => {
+    if (user) {
+      loadStockData();
+    }
+  }, [user]);
+
+  const loadStockData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load products with related data
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          categories:category_id (name)
+        `)
+        .eq('user_id', user?.id)
+        .order('name');
+
+      if (productsError) throw productsError;
+
+      // Load suppliers separately
+      const { data: suppliersData, error: suppliersError } = await supabase
+        .from('suppliers')
+        .select('id, name')
+        .eq('user_id', user?.id);
+
+      if (suppliersError) throw suppliersError;
+
+      // Get last movement date for each product
+      const productsWithMovements = await Promise.all(
+        (products || []).map(async (product) => {
+          const { data: lastMovement } = await supabase
+            .from('stock_movements')
+            .select('movement_date')
+            .eq('product_id', product.id)
+            .eq('user_id', user?.id)
+            .order('movement_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          return {
+            ...product,
+            last_movement: lastMovement?.movement_date || null
+          };
+        })
+      );
+
+      setStockData(productsWithMovements);
+
+      // Extract unique categories and suppliers
+      const uniqueCategories = [...new Set(productsWithMovements
+        .map(p => p.categories?.name)
+        .filter(Boolean))] as string[];
+      
+      const uniqueSuppliers = suppliersData?.map(s => s.name) || [];
+
+      setCategories(['Todos', ...uniqueCategories]);
+      setSuppliers(['Todos', ...uniqueSuppliers]);
+
+    } catch (error) {
+      console.error('Error loading stock data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getProductStatus = (product: StockReportItem) => {
+    const currentStock = product.current_stock || 0;
+    const minStock = product.min_stock || 0;
+    
+    if (currentStock === 0) return 'out_of_stock';
+    if (currentStock <= minStock * 0.5) return 'critical';
+    if (currentStock <= minStock) return 'low';
+    return 'normal';
+  };
+
   const filteredStock = stockData.filter(item => {
     const matchesSearch = 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.categories?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = categoryFilter === "Todos" || item.category === categoryFilter;
-    const matchesSupplier = supplierFilter === "Todos" || item.supplier === supplierFilter;
-    const matchesStatus = statusFilter === "Todos" || item.status === statusFilter;
+    const matchesCategory = categoryFilter === "Todos" || item.categories?.name === categoryFilter;
+    const matchesSupplier = supplierFilter === "Todos" || suppliers.includes(supplierFilter);
+    
+    const status = getProductStatus(item);
+    const matchesStatus = statusFilter === "Todos" || status === statusFilter;
     
     return matchesSearch && matchesCategory && matchesSupplier && matchesStatus;
   });
 
-  const getStatusBadge = (status: string, current: number, min: number) => {
+  const getStatusBadge = (product: StockReportItem) => {
+    const status = getProductStatus(product);
+    
     switch (status) {
       case "out_of_stock":
         return <Badge variant="destructive">Sem Estoque</Badge>;
@@ -126,14 +144,33 @@ export const StockReport = () => {
 
   const calculateSummary = () => {
     const totalProducts = stockData.length;
-    const totalValue = stockData.reduce((sum, item) => sum + item.totalValue, 0);
-    const lowStockCount = stockData.filter(item => item.status === "low" || item.status === "critical").length;
-    const outOfStockCount = stockData.filter(item => item.status === "out_of_stock").length;
+    const totalValue = stockData.reduce((sum, item) => {
+      const currentStock = item.current_stock || 0;
+      const costPrice = item.cost_price || 0;
+      return sum + (currentStock * costPrice);
+    }, 0);
+    
+    const lowStockCount = stockData.filter(item => {
+      const status = getProductStatus(item);
+      return status === "low" || status === "critical";
+    }).length;
+    
+    const outOfStockCount = stockData.filter(item => getProductStatus(item) === "out_of_stock").length;
     
     return { totalProducts, totalValue, lowStockCount, outOfStockCount };
   };
 
   const summary = calculateSummary();
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -279,7 +316,6 @@ export const StockReport = () => {
                     <TableHead>Código</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead>Fornecedor</TableHead>
                     <TableHead className="text-center">Estoque</TableHead>
                     <TableHead className="text-center">Mín/Máx</TableHead>
                     <TableHead className="text-right">Valor Unit.</TableHead>
@@ -297,31 +333,30 @@ export const StockReport = () => {
                           <p className="font-medium">{item.name}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell className="text-sm">{item.supplier}</TableCell>
+                      <TableCell>{item.categories?.name || 'Sem categoria'}</TableCell>
                       <TableCell className="text-center">
                         <span className={`font-bold ${
-                          item.status === 'out_of_stock' ? 'text-destructive' :
-                          item.status === 'critical' ? 'text-destructive' :
-                          item.status === 'low' ? 'text-warning' : 'text-primary'
+                          getProductStatus(item) === 'out_of_stock' ? 'text-destructive' :
+                          getProductStatus(item) === 'critical' ? 'text-destructive' :
+                          getProductStatus(item) === 'low' ? 'text-warning' : 'text-primary'
                         }`}>
-                          {item.currentStock}
+                          {item.current_stock || 0}
                         </span>
                       </TableCell>
                       <TableCell className="text-center text-sm text-muted-foreground">
-                        {item.minStock}/{item.maxStock}
+                        {item.min_stock || 0}/{item.max_stock || 0}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        R$ {item.avgCost.toFixed(2)}
+                        R$ {(item.cost_price || 0).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right font-semibold">
-                        R$ {item.totalValue.toFixed(2)}
+                        R$ {((item.current_stock || 0) * (item.cost_price || 0)).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(item.status, item.currentStock, item.minStock)}
+                        {getStatusBadge(item)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {item.lastMovement}
+                        {item.last_movement ? new Date(item.last_movement).toLocaleDateString('pt-BR') : 'Nunca'}
                       </TableCell>
                     </TableRow>
                   ))}

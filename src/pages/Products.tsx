@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,124 +24,235 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-const mockProducts = [
-  {
-    id: "1",
-    code: "MSE001",
-    name: "Mouse Gamer RGB",
-    description: "Mouse gamer com iluminação RGB e 7 botões",
-    category: "Periféricos",
-    unit: "Unidade",
-    costPrice: 45.90,
-    sellPrice: 89.90,
-    currentStock: 25,
-    minStock: 10,
-    maxStock: 100,
-    status: "active"
-  },
-  {
-    id: "2",
-    code: "TEC002",
-    name: "Teclado Mecânico",
-    description: "Teclado mecânico com switches blue",
-    category: "Periféricos",
-    unit: "Unidade",
-    costPrice: 120.00,
-    sellPrice: 199.90,
-    currentStock: 8,
-    minStock: 15,
-    maxStock: 50,
-    status: "low_stock"
-  },
-  {
-    id: "3",
-    code: "MON003",
-    name: "Monitor 24\"",
-    description: "Monitor LED 24 polegadas Full HD",
-    category: "Monitores",
-    unit: "Unidade",
-    costPrice: 280.00,
-    sellPrice: 450.00,
-    currentStock: 12,
-    minStock: 5,
-    maxStock: 30,
-    status: "active"
-  }
-];
+type Product = Tables<'products'> & {
+  categories?: { name: string } | null;
+};
 
-const categories = ["Periféricos", "Monitores", "Computadores", "Acessórios"];
+type Category = Tables<'categories'>;
+
 const units = ["Unidade", "Kg", "Caixa", "Metro", "Litro"];
 
 export const Products = () => {
-  const [products] = useState(mockProducts);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const { toast } = useToast();
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     description: "",
-    category: "",
-    unit: "",
-    costPrice: "",
-    sellPrice: "",
-    minStock: "",
-    maxStock: ""
+    category_id: "",
+    unit_measure: "",
+    cost_price: "",
+    sale_price: "",
+    min_stock: "",
+    max_stock: ""
   });
+
+  // Load products and categories
+  useEffect(() => {
+    if (user) {
+      loadProducts();
+      loadCategories();
+    }
+  }, [user]);
+
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          categories:category_id (name)
+        `)
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      toast({
+        title: "Erro ao carregar produtos",
+        description: "Não foi possível carregar a lista de produtos.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('name');
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    (product.categories?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSave = () => {
-    toast({
-      title: editingProduct ? "Produto atualizado!" : "Produto cadastrado!",
-      description: editingProduct ? "As alterações foram salvas com sucesso." : "Novo produto adicionado ao sistema."
-    });
-    setIsDialogOpen(false);
-    setEditingProduct(null);
-    setFormData({
-      code: "",
-      name: "",
-      description: "",
-      category: "",
-      unit: "",
-      costPrice: "",
-      sellPrice: "",
-      minStock: "",
-      maxStock: ""
-    });
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+
+      const productData = {
+        code: formData.code,
+        name: formData.name,
+        description: formData.description || null,
+        category_id: formData.category_id || null,
+        unit_measure: formData.unit_measure,
+        cost_price: parseFloat(formData.cost_price) || 0,
+        sale_price: parseFloat(formData.sale_price) || 0,
+        min_stock: parseInt(formData.min_stock) || 0,
+        max_stock: parseInt(formData.max_stock) || 0,
+        user_id: user.id
+      };
+
+      let error;
+
+      if (editingProduct) {
+        // Update existing product
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(productData)
+          .eq('id', editingProduct.id)
+          .eq('user_id', user.id);
+        error = updateError;
+      } else {
+        // Create new product
+        const { error: insertError } = await supabase
+          .from('products')
+          .insert([productData]);
+        error = insertError;
+      }
+
+      if (error) throw error;
+
+      toast({
+        title: editingProduct ? "Produto atualizado!" : "Produto cadastrado!",
+        description: editingProduct ? "As alterações foram salvas com sucesso." : "Novo produto adicionado ao sistema."
+      });
+
+      setIsDialogOpen(false);
+      setEditingProduct(null);
+      resetForm();
+      loadProducts(); // Reload products
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        title: "Erro ao salvar produto",
+        description: "Não foi possível salvar o produto. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleEdit = (product: any) => {
+  const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData({
       code: product.code,
       name: product.name,
-      description: product.description,
-      category: product.category,
-      unit: product.unit,
-      costPrice: product.costPrice.toString(),
-      sellPrice: product.sellPrice.toString(),
-      minStock: product.minStock.toString(),
-      maxStock: product.maxStock.toString()
+      description: product.description || "",
+      category_id: product.category_id || "",
+      unit_measure: product.unit_measure,
+      cost_price: product.cost_price?.toString() || "",
+      sale_price: product.sale_price?.toString() || "",
+      min_stock: product.min_stock?.toString() || "",
+      max_stock: product.max_stock?.toString() || ""
     });
     setIsDialogOpen(true);
   };
 
-  const getStatusBadge = (product: any) => {
-    if (product.currentStock <= product.minStock) {
+  const handleDelete = async (product: Product) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Produto excluído!",
+        description: "O produto foi removido do sistema."
+      });
+
+      loadProducts(); // Reload products
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Erro ao excluir produto",
+        description: "Não foi possível excluir o produto. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      code: "",
+      name: "",
+      description: "",
+      category_id: "",
+      unit_measure: "",
+      cost_price: "",
+      sale_price: "",
+      min_stock: "",
+      max_stock: ""
+    });
+  };
+
+  const getStatusBadge = (product: Product) => {
+    const currentStock = product.current_stock || 0;
+    const minStock = product.min_stock || 0;
+    
+    if (currentStock <= minStock) {
       return <Badge variant="destructive">Estoque Baixo</Badge>;
     }
     return <Badge className="bg-success text-success-foreground">Ativo</Badge>;
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -207,20 +318,20 @@ export const Products = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Categoria</Label>
-                    <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+                    <Select value={formData.category_id} onValueChange={(value) => setFormData({...formData, category_id: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                          <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Unidade</Label>
-                    <Select value={formData.unit} onValueChange={(value) => setFormData({...formData, unit: value})}>
+                    <Select value={formData.unit_measure} onValueChange={(value) => setFormData({...formData, unit_measure: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
@@ -241,8 +352,8 @@ export const Products = () => {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.costPrice}
-                      onChange={(e) => setFormData({...formData, costPrice: e.target.value})}
+                      value={formData.cost_price}
+                      onChange={(e) => setFormData({...formData, cost_price: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
@@ -252,8 +363,8 @@ export const Products = () => {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.sellPrice}
-                      onChange={(e) => setFormData({...formData, sellPrice: e.target.value})}
+                      value={formData.sale_price}
+                      onChange={(e) => setFormData({...formData, sale_price: e.target.value})}
                     />
                   </div>
                 </div>
@@ -265,8 +376,8 @@ export const Products = () => {
                       id="minStock"
                       type="number"
                       placeholder="0"
-                      value={formData.minStock}
-                      onChange={(e) => setFormData({...formData, minStock: e.target.value})}
+                      value={formData.min_stock}
+                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
@@ -275,8 +386,8 @@ export const Products = () => {
                       id="maxStock"
                       type="number"
                       placeholder="0"
-                      value={formData.maxStock}
-                      onChange={(e) => setFormData({...formData, maxStock: e.target.value})}
+                      value={formData.max_stock}
+                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
                     />
                   </div>
                 </div>
@@ -340,13 +451,13 @@ export const Products = () => {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>R$ {product.sellPrice.toFixed(2)}</TableCell>
+                      <TableCell>{product.categories?.name || 'Sem categoria'}</TableCell>
+                      <TableCell>R$ {(product.sale_price || 0).toFixed(2)}</TableCell>
                       <TableCell>
                         <div className="text-center">
-                          <p className="font-semibold">{product.currentStock}</p>
+                          <p className="font-semibold">{product.current_stock || 0}</p>
                           <p className="text-xs text-muted-foreground">
-                            Min: {product.minStock}
+                            Min: {product.min_stock || 0}
                           </p>
                         </div>
                       </TableCell>
