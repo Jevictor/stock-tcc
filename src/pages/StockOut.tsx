@@ -1,278 +1,246 @@
 import { useState, useEffect } from "react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, Search, TrendingDown, ShoppingCart, User, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { toast } from "@/hooks/use-toast";
+import { TrendingDown, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 
-type StockMovement = Tables<'stock_movements'> & {
-  products?: { name: string } | null;
-};
+interface Product {
+  id: string;
+  name: string;
+  current_stock: number;
+  unit_measure: string;
+}
 
-type Product = Tables<'products'>;
+interface Customer {
+  id: string;
+  name: string;
+}
 
-const exitTypes = ["Venda", "Uso Interno", "Devolução", "Perda", "Transferência"];
+interface StockMovement {
+  id: string;
+  product_id: string;
+  supplier_id?: string;
+  customer_id?: string;
+  quantity: number;
+  movement_type: string;
+  movement_date: string;
+  reason?: string;
+  notes?: string;
+  products?: { name: string; unit_measure: string } | null;
+  customers?: { name: string } | null;
+}
 
 export const StockOut = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [exits, setExits] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-
   const [formData, setFormData] = useState({
-    movement_date: new Date().toISOString().split('T')[0],
-    reason: "",
     product_id: "",
     quantity: "",
-    unit_price: "",
+    customer_id: "",
+    reason: "",
     notes: ""
   });
 
-  const [stats, setStats] = useState({
-    todayExits: 0,
-    monthSales: 0,
-    monthProducts: 0
-  });
+  const fetchProducts = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, current_stock, unit_measure')
+      .gt('current_stock', 0)
+      .order('name');
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar produtos",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setProducts(data || []);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, name')
+      .order('name');
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar clientes",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setCustomers(data || []);
+    }
+  };
+
+  const fetchMovements = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('stock_movements')
+      .select(`
+        *,
+        products (name, unit_measure),
+        customers (name)
+      `)
+      .eq('movement_type', 'out')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar movimentações",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setMovements(data as unknown as StockMovement[] || []);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
+    fetchProducts();
+    fetchCustomers();
+    fetchMovements();
   }, [user]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Load stock movements (exits only)
-      const { data: movements, error: movementsError } = await supabase
-        .from('stock_movements')
-        .select(`
-          *,
-          products:product_id (name)
-        `)
-        .eq('user_id', user?.id)
-        .eq('movement_type', 'out')
-        .order('created_at', { ascending: false });
-
-      if (movementsError) throw movementsError;
-
-      // Load products
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (productsError) throw productsError;
-
-      setExits(movements || []);
-      setProducts(productsData || []);
-
-      // Calculate stats
-      const today = new Date().toISOString().split('T')[0];
-      const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-
-      const todayExits = (movements || []).filter(m => 
-        m.movement_date?.split('T')[0] === today
-      ).length;
-
-      const monthSales = (movements || []).filter(m => 
-        m.movement_date?.slice(0, 7) === thisMonth && m.reason === 'Venda'
-      ).reduce((sum, m) => sum + ((m.quantity || 0) * (m.unit_price || 0)), 0);
-
-      const monthProducts = (movements || []).filter(m => 
-        m.movement_date?.slice(0, 7) === thisMonth
-      ).reduce((sum, m) => sum + (m.quantity || 0), 0);
-
-      setStats({
-        todayExits,
-        monthSales,
-        monthProducts
-      });
-
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os dados da página.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredExits = exits.filter(exit =>
-    (exit.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (exit.products?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (exit.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleSave = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
 
-    try {
-      setSaving(true);
+    const selectedProduct = products.find(p => p.id === formData.product_id);
+    const quantity = parseInt(formData.quantity);
 
-      const movementData = {
-        movement_date: formData.movement_date,
-        product_id: formData.product_id,
-        quantity: parseInt(formData.quantity),
-        unit_price: parseFloat(formData.unit_price) || 0,
-        total_value: parseInt(formData.quantity) * (parseFloat(formData.unit_price) || 0),
-        movement_type: 'out' as const,
-        reason: formData.reason,
-        notes: formData.notes || null,
-        user_id: user.id
-      };
-
-      const { error } = await supabase
-        .from('stock_movements')
-        .insert([movementData]);
-
-      if (error) throw error;
-
+    if (!selectedProduct || quantity <= 0) {
       toast({
-        title: "Saída registrada!",
-        description: "A saída de estoque foi registrada com sucesso e o saldo foi atualizado."
+        title: "Erro na validação",
+        description: "Selecione um produto e quantidade válida.",
+        variant: "destructive",
       });
+      return;
+    }
 
-      setIsDialogOpen(false);
-      resetForm();
-      loadData();
-    } catch (error) {
-      console.error('Error saving exit:', error);
+    if (quantity > selectedProduct.current_stock) {
+      toast({
+        title: "Estoque insuficiente",
+        description: `Apenas ${selectedProduct.current_stock} unidades disponíveis.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const movementData = {
+      product_id: formData.product_id,
+      quantity: parseInt(formData.quantity),
+      movement_type: 'out',
+      movement_date: new Date().toISOString(),
+      reason: formData.reason,
+      notes: formData.notes || null,
+      customer_id: formData.customer_id || null,
+      user_id: user.id
+    };
+
+    const { error } = await supabase
+      .from('stock_movements')
+      .insert([movementData]);
+
+    if (error) {
       toast({
         title: "Erro ao registrar saída",
-        description: "Não foi possível registrar a saída. Tente novamente.",
-        variant: "destructive"
+        description: error.message,
+        variant: "destructive",
       });
-    } finally {
-      setSaving(false);
+    } else {
+      toast({
+        title: "Saída registrada!",
+        description: "A saída de estoque foi registrada com sucesso.",
+      });
+      
+      setFormData({
+        product_id: "",
+        quantity: "",
+        customer_id: "",
+        reason: "",
+        notes: ""
+      });
+      
+      fetchProducts();
+      fetchMovements();
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      movement_date: new Date().toISOString().split('T')[0],
-      reason: "",
-      product_id: "",
-      quantity: "",
-      unit_price: "",
-      notes: ""
-    });
-  };
-
-  const calculateTotal = () => {
-    const quantity = parseFloat(formData.quantity) || 0;
-    const unitPrice = parseFloat(formData.unit_price) || 0;
-    return (quantity * unitPrice).toFixed(2);
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "Venda":
-        return <ShoppingCart className="h-4 w-4 text-success" />;
-      case "Uso Interno":
-        return <User className="h-4 w-4 text-accent" />;
-      default:
-        return <TrendingDown className="h-4 w-4 text-warning" />;
+  const columns = [
+    { 
+      header: "Produto", 
+      accessorKey: "products.name",
+      cell: (row: StockMovement) => row.products?.name || "N/A"
+    },
+    { header: "Quantidade", accessorKey: "quantity" },
+    { 
+      header: "Unidade", 
+      accessorKey: "products.unit_measure",
+      cell: (row: StockMovement) => row.products?.unit_measure || "N/A"
+    },
+    { 
+      header: "Cliente", 
+      accessorKey: "customers.name",
+      cell: (row: StockMovement) => row.customers?.name || "Não informado"
+    },
+    { header: "Motivo", accessorKey: "reason" },
+    { 
+      header: "Data", 
+      accessorKey: "movement_date",
+      cell: (row: StockMovement) => new Date(row.movement_date).toLocaleDateString('pt-BR')
     }
-  };
+  ];
 
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </DashboardLayout>
-    );
+    return <div className="flex justify-center items-center h-64">Carregando...</div>;
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-primary">Saída de Estoque</h1>
-            <p className="text-muted-foreground">
-              Registre vendas, uso interno e outras saídas
-            </p>
-          </div>
-          
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-primary shadow-elegant">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Saída
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Registrar Saída de Estoque</DialogTitle>
-                <DialogDescription>
-                  Preencha os dados da nova saída de produtos do estoque.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="movement_date">Data da Saída</Label>
-                    <Input
-                      id="movement_date"
-                      type="date"
-                      value={formData.movement_date}
-                      onChange={(e) => setFormData({...formData, movement_date: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo de Saída</Label>
-                    <Select value={formData.reason} onValueChange={(value) => setFormData({...formData, reason: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {exitTypes.map((type) => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Produto</Label>
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <TrendingDown className="h-8 w-8 text-destructive" />
+            Saída de Estoque
+          </h1>
+          <p className="text-muted-foreground">Registre saídas de produtos do estoque</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Formulário de saída */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Nova Saída
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="product">Produto *</Label>
                   <Select value={formData.product_id} onValueChange={(value) => setFormData({...formData, product_id: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o produto" />
@@ -280,176 +248,119 @@ export const StockOut = () => {
                     <SelectContent>
                       {products.map((product) => (
                         <SelectItem key={product.id} value={product.id}>
-                          {product.name} (Estoque: {product.current_stock || 0})
+                          {product.name} (Estoque: {product.current_stock} {product.unit_measure})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantidade</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      placeholder="0"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unit_price">Preço Unitário</Label>
-                    <Input
-                      id="unit_price"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.unit_price}
-                      onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Valor Total</Label>
-                    <Input
-                      readOnly
-                      value={`R$ ${calculateTotal()}`}
-                      className="bg-muted"
-                    />
-                  </div>
+
+                <div>
+                  <Label htmlFor="quantity">Quantidade *</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+                    required
+                    min="1"
+                  />
                 </div>
 
-                <div className="space-y-2">
+                <div>
+                  <Label htmlFor="customer">Cliente (Opcional)</Label>
+                  <Select value={formData.customer_id} onValueChange={(value) => setFormData({...formData, customer_id: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um cliente (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum cliente</SelectItem>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="reason">Motivo da Saída *</Label>
+                  <Select value={formData.reason} onValueChange={(value) => setFormData({...formData, reason: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o motivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Venda">Venda</SelectItem>
+                      <SelectItem value="Perda">Perda</SelectItem>
+                      <SelectItem value="Devolução">Devolução</SelectItem>
+                      <SelectItem value="Transferência">Transferência</SelectItem>
+                      <SelectItem value="Uso interno">Uso interno</SelectItem>
+                      <SelectItem value="Descarte">Descarte</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
                   <Label htmlFor="notes">Observações</Label>
                   <Textarea
                     id="notes"
-                    placeholder="Observações adicionais..."
                     value={formData.notes}
                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                    placeholder="Observações opcionais..."
                   />
                 </div>
               </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Registrar Saída
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saídas Hoje
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.todayExits}</div>
-              <p className="text-xs text-muted-foreground">
-                Registros de hoje
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Vendas do Mês
-              </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ {stats.monthSales.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">
-                Em vendas este mês
-              </p>
-            </CardContent>
-          </Card>
+              <Button type="submit" className="w-full">
+                Registrar Saída
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Produtos Saídos
-              </CardTitle>
-              <User className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.monthProducts}</div>
-              <p className="text-xs text-muted-foreground">
-                Unidades este mês
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Exits List */}
-        <Card className="shadow-card">
+        {/* Lista de movimentações recentes */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5" />
-              Histórico de Saídas
-            </CardTitle>
+            <CardTitle>Saídas Recentes ({movements.length})</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por tipo, produto ou observações..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <CardContent className="max-h-[600px] overflow-y-auto">
+            {movements.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingDown className="h-12 w-12 mx-auto mb-4" />
+                <p>Nenhuma saída registrada ainda.</p>
               </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="border rounded-lg min-w-[800px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>Quantidade</TableHead>
-                      <TableHead>Valor Total</TableHead>
-                      <TableHead>Observações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                  {filteredExits.map((exit) => (
-                    <TableRow key={exit.id}>
-                      <TableCell>
-                        {exit.movement_date ? new Date(exit.movement_date).toLocaleDateString('pt-BR') : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(exit.reason || '')}
-                          {exit.reason || 'Não informado'}
-                        </div>
-                      </TableCell>
-                      <TableCell>{exit.products?.name || 'Produto não encontrado'}</TableCell>
-                      <TableCell className="text-center font-semibold">{exit.quantity}</TableCell>
-                      <TableCell className="font-semibold">R$ {(exit.total_value || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-sm">{exit.notes || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                </Table>
+            ) : (
+              <div className="space-y-3">
+                {movements.slice(0, 10).map((movement) => (
+                  <div key={movement.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{movement.products?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {movement.quantity} {movement.products?.unit_measure}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm">
+                        <p>{new Date(movement.movement_date).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-muted-foreground">{movement.reason}</p>
+                      </div>
+                    </div>
+                    {movement.customers?.name && (
+                      <p className="text-sm text-muted-foreground">
+                        Cliente: {movement.customers.name}
+                      </p>
+                    )}
+                    {movement.notes && (
+                      <p className="text-sm text-muted-foreground">{movement.notes}</p>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };

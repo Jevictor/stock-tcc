@@ -10,11 +10,12 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";
 import { Products } from "./pages/Products";
-import { Suppliers } from "./pages/Suppliers";
 import { StockIn } from "./pages/StockIn";
 import { StockOut } from "./pages/StockOut";
 import { StockReport } from "./pages/StockReport";
 import { Categories } from "./pages/Categories";
+import { Suppliers } from "./pages/Suppliers";
+import { Customers } from "./pages/Customers";
 import NotFound from "./pages/NotFound";
 
 console.log('App: Module loading');
@@ -68,6 +69,11 @@ const App = () => {
               <Route path="/categories" element={
                 <ProtectedRoute>
                   <Categories />
+                </ProtectedRoute>
+              } />
+              <Route path="/customers" element={
+                <ProtectedRoute>
+                  <Customers />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

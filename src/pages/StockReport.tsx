@@ -1,296 +1,263 @@
 import { useState, useEffect } from "react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Search, BarChart3, AlertTriangle, Package, Filter, Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { Badge } from "@/components/ui/badge";
+import { BarChart3, Package, TrendingDown, TrendingUp, Filter } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
-type Product = Tables<'products'> & {
+interface ProductStock {
+  id: string;
+  name: string;
+  code: string;
+  current_stock: number;
+  min_stock: number;
+  max_stock: number;
+  unit_measure: string;
+  category_id?: string;
+  cost_price: number;
+  sale_price: number;
   categories?: { name: string } | null;
-  averageEntryPrice?: number;
-  lastEntryPrice?: number;
-  lastMovementDate?: string | null;
-  entriesCount?: number;
-};
+  average_entry_price?: number;
+}
 
-type Category = Tables<'categories'>;
-type Supplier = Tables<'suppliers'>;
+interface StockMovement {
+  id: string;
+  product_id: string;
+  supplier_id?: string;
+  customer_id?: string;
+  quantity: number;
+  unit_price?: number;
+  movement_type: string;
+  movement_date: string;
+  reason?: string;
+  notes?: string;
+  suppliers?: { name: string } | null;
+  customers?: { name: string } | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+}
 
 export const StockReport = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductStock[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const [summary, setSummary] = useState({
-    totalProducts: 0,
-    totalValue: 0,
-    lowStockCount: 0,
-    outOfStockCount: 0
-  });
+  const fetchProducts = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        categories (name)
+      `)
+      .order('name');
+
+    if (error) {
+      console.error('Erro ao carregar produtos:', error);
+    } else {
+      // Calculate average entry prices
+      const productsWithAverage = await Promise.all(
+        (data || []).map(async (product) => {
+          const { data: movData } = await supabase
+            .from('stock_movements')
+            .select('quantity, unit_price')
+            .eq('product_id', product.id)
+            .eq('movement_type', 'in')
+            .not('unit_price', 'is', null);
+          
+          let averagePrice = 0;
+          if (movData && movData.length > 0) {
+            const totalValue = movData.reduce((sum, mov) => 
+              sum + ((mov.quantity || 0) * (mov.unit_price || 0)), 0);
+            const totalQty = movData.reduce((sum, mov) => sum + (mov.quantity || 0), 0);
+            averagePrice = totalQty > 0 ? totalValue / totalQty : 0;
+          }
+          
+          return {
+            ...product,
+            average_entry_price: averagePrice
+          };
+        })
+      );
+      
+      setProducts(productsWithAverage);
+    }
+  };
+
+  const fetchCategories = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('categories')
+      .select('id, name')
+      .order('name');
+    
+    setCategories(data || []);
+  };
+
+  const fetchSuppliers = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('suppliers')
+      .select('id, name')
+      .order('name');
+    
+    setSuppliers(data || []);
+  };
+
+  const fetchMovements = async () => {
+    if (!user || !selectedProduct) {
+      setMovements([]);
+      return;
+    }
+
+    let query = supabase
+      .from('stock_movements')
+      .select(`
+        *,
+        suppliers (name),
+        customers (name)
+      `)
+      .eq('product_id', selectedProduct)
+      .order('movement_date', { ascending: false });
+
+    const { data } = await query;
+    setMovements(data as unknown as StockMovement[] || []);
+  };
 
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
+    fetchProducts();
+    fetchCategories();
+    fetchSuppliers();
   }, [user]);
 
-  // Load data from Supabase
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Load products with categories
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select(`
-          *,
-          categories:category_id (name)
-        `)
-        .eq('user_id', user?.id);
-
-      if (productsError) throw productsError;
-
-      // Load stock movements for price analysis
-      const { data: movementsData, error: movementsError } = await supabase
-        .from('stock_movements')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('movement_type', 'in')
-        .not('unit_price', 'is', null);
-
-      if (movementsError) throw movementsError;
-
-      // Calculate average entry prices and last entry prices
-      const productsWithPriceInfo = (productsData || []).map(product => {
-        const productMovements = (movementsData || []).filter(m => m.product_id === product.id);
-        
-        let averageEntryPrice = 0;
-        let lastEntryPrice = 0;
-        let lastMovementDate = null;
-        
-        if (productMovements.length > 0) {
-          // Calculate weighted average (quantity * price) / total quantity
-          const totalValue = productMovements.reduce((sum, m) => sum + ((m.quantity || 0) * (m.unit_price || 0)), 0);
-          const totalQuantity = productMovements.reduce((sum, m) => sum + (m.quantity || 0), 0);
-          averageEntryPrice = totalQuantity > 0 ? totalValue / totalQuantity : 0;
-          
-          // Get last entry price
-          const sortedMovements = productMovements.sort((a, b) => 
-            new Date(b.movement_date || '').getTime() - new Date(a.movement_date || '').getTime()
-          );
-          lastEntryPrice = sortedMovements[0]?.unit_price || 0;
-          lastMovementDate = sortedMovements[0]?.movement_date;
-        }
-
-        return {
-          ...product,
-          averageEntryPrice,
-          lastEntryPrice,
-          lastMovementDate,
-          entriesCount: productMovements.length
-        };
-      });
-
-      setProducts(productsWithPriceInfo);
-
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (categoriesError) throw categoriesError;
-
-      setCategories(categoriesData || []);
-
-      // Load suppliers
-      const { data: suppliersData, error: suppliersError } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (suppliersError) throw suppliersError;
-
-      setSuppliers(suppliersData || []);
-
-      // Calculate summary
-      const totalProducts = productsWithPriceInfo.length;
-      const totalValue = productsWithPriceInfo.reduce((sum, product) => {
-        return sum + ((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0));
-      }, 0);
-      const lowStockCount = productsWithPriceInfo.filter(product => 
-        (product.current_stock || 0) === 0
-      ).length;
-      const outOfStockCount = productsWithPriceInfo.filter(product => 
-        (product.current_stock || 0) === 0
-      ).length;
-
-      setSummary({
-        totalProducts,
-        totalValue,
-        lowStockCount,
-        outOfStockCount
-      });
-
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os dados da página.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchMovements();
+  }, [selectedProduct, user]);
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.categories?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === "all" || product.category_id === categoryFilter;
-    
-    return matchesSearch && matchesCategory;
+    if (selectedCategory && product.category_id !== selectedCategory) return false;
+    if (selectedSupplier) {
+      // Note: This would need a more complex query to check supplier relationships
+      // For now, we'll show all products if supplier filter is active
+    }
+    return true;
   });
 
-  const getStatusBadge = (product: Product) => {
-    const currentStock = product.current_stock || 0;
-    
-    if (currentStock === 0) {
-      return <Badge variant="destructive">Sem Estoque</Badge>;
+  const getStockStatus = (product: ProductStock) => {
+    if (product.current_stock <= 0) {
+      return <Badge variant="destructive">Sem estoque</Badge>;
     }
-    return <Badge className="bg-success text-success-foreground">Em Estoque</Badge>;
+    if (product.current_stock <= product.min_stock) {
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Estoque baixo</Badge>;
+    }
+    return <Badge className="bg-green-100 text-green-800">Normal</Badge>;
   };
 
+  const totalStockValue = filteredProducts.reduce((total, product) => {
+    return total + (product.current_stock * (product.average_entry_price || product.cost_price));
+  }, 0);
+
+  const lowStockCount = filteredProducts.filter(p => p.current_stock <= p.min_stock).length;
+  const outOfStockCount = filteredProducts.filter(p => p.current_stock <= 0).length;
+
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </DashboardLayout>
-    );
+    return <div className="flex justify-center items-center h-64">Carregando relatório...</div>;
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Consulta de Estoque</h1>
-          <p className="text-muted-foreground">
-            Visualize saldos, preços de entrada e relatórios detalhados
-          </p>
-        </div>
+    <div className="container mx-auto p-4 space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+          <BarChart3 className="h-8 w-8 text-primary" />
+          Consulta de Estoque
+        </h1>
+        <p className="text-muted-foreground">Relatórios e análise do estoque</p>
+      </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Produtos
-              </CardTitle>
-              <Package className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{summary.totalProducts}</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Valor Total (Preço Médio)
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                R$ {summary.totalValue.toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Baseado no preço médio de entrada
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Estoque Baixo
-              </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">{summary.lowStockCount}</div>
-              <p className="text-xs text-muted-foreground">
-                Produtos precisando reposição
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Sem Estoque
-              </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{summary.outOfStockCount}</div>
-              <p className="text-xs text-muted-foreground">
-                Produtos zerados
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Product Report */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Relatório Detalhado de Produtos
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Total de Produtos
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <p className="text-2xl font-bold">{filteredProducts.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Valor Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">R$ {totalStockValue.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-yellow-500" />
+              Estoque Baixo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-yellow-600">{lowStockCount}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-red-500" />
+              Sem Estoque
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">{outOfStockCount}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-full sm:w-[200px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Categoria" />
+                  <SelectValue placeholder="Filtrar por categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Categorias</SelectItem>
+                  <SelectItem value="">Todas as categorias</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -298,73 +265,142 @@ export const StockReport = () => {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="overflow-x-auto">
-              <div className="border rounded-lg min-w-[800px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[150px]">Produto</TableHead>
-                      <TableHead className="min-w-[120px]">Categoria</TableHead>
-                      <TableHead className="min-w-[100px]">Estoque</TableHead>
-                      <TableHead className="min-w-[120px]">Preço Padrão</TableHead>
-                      <TableHead className="min-w-[140px]">Preço Médio Entrada</TableHead>
-                      <TableHead className="min-w-[130px]">Última Entrada</TableHead>
-                      <TableHead className="min-w-[120px]">Valor Total</TableHead>
-                      <TableHead className="min-w-[100px]">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProducts.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="min-w-[150px]">
-                          <div>
-                            <div className="font-medium">{product.name}</div>
-                            <div className="text-sm text-muted-foreground">{product.code}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="min-w-[120px]">{product.categories?.name || 'Sem categoria'}</TableCell>
-                        <TableCell className="text-center font-semibold min-w-[100px]">
-                          {product.current_stock || 0} {product.unit_measure}
-                        </TableCell>
-                        <TableCell className="min-w-[120px]">R$ {(product.cost_price || 0).toFixed(2)}</TableCell>
-                        <TableCell className="min-w-[140px]">
-                          <div>
-                            <div>R$ {(product.averageEntryPrice || 0).toFixed(2)}</div>
-                            {product.entriesCount && product.entriesCount > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                {product.entriesCount} entrada{product.entriesCount !== 1 ? 's' : ''}
-                              </div>
-                            )}
-                            {!product.entriesCount || product.entriesCount === 0 && (
-                              <div className="text-xs text-muted-foreground">Sem entradas</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="min-w-[130px]">
-                          <div>
-                            <div>R$ {(product.lastEntryPrice || 0).toFixed(2)}</div>
-                            {product.lastMovementDate && (
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(product.lastMovementDate).toLocaleDateString('pt-BR')}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-semibold min-w-[120px]">
-                          R$ {((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0)).toFixed(2)}
-                        </TableCell>
-                        <TableCell className="min-w-[100px]">{getStatusBadge(product)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Filtrar por fornecedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os fornecedores</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Relatório de produtos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Relatório de Produtos ({filteredProducts.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <div className="min-w-[800px]">
+            <div className="space-y-3">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="border rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground">{product.code}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Categoria: {product.categories?.name || "Sem categoria"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {getStockStatus(product)}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Estoque Atual</p>
+                      <p className="font-medium">{product.current_stock} {product.unit_measure}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Preço Custo</p>
+                      <p className="font-medium">R$ {product.cost_price.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Preço Médio Entrada</p>
+                      <p className="font-medium">R$ {(product.average_entry_price || 0).toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Valor Total</p>
+                      <p className="font-medium">
+                        R$ {(product.current_stock * (product.average_entry_price || product.cost_price)).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <Select 
+                      value={selectedProduct === product.id ? product.id : ""} 
+                      onValueChange={(value) => setSelectedProduct(value)}
+                    >
+                      <SelectTrigger className="w-full sm:w-[250px]">
+                        <SelectValue placeholder="Ver histórico de movimentações" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={product.id}>Ver movimentações</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Histórico de movimentações */}
+      {selectedProduct && movements.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico de Movimentações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {movements.map((movement) => (
+                <div key={movement.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      {movement.movement_type === 'in' ? (
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-600" />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {movement.movement_type === 'in' ? 'Entrada' : 'Saída'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {movement.quantity} unidades
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p>{new Date(movement.movement_date).toLocaleDateString('pt-BR')}</p>
+                      {movement.unit_price && (
+                        <p className="text-muted-foreground">R$ {movement.unit_price.toFixed(2)}/un</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      <strong>
+                        {movement.movement_type === 'in' ? 'Fornecedor/Cliente:' : 'Fornecedor/Cliente:'}
+                      </strong>{' '}
+                      {movement.movement_type === 'in' 
+                        ? (movement.suppliers?.name || "Não informado")
+                        : (movement.customers?.name || "Não informado")
+                      }
+                    </p>
+                    {movement.reason && <p><strong>Motivo:</strong> {movement.reason}</p>}
+                    {movement.notes && <p><strong>Observações:</strong> {movement.notes}</p>}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
-      </div>
-    </DashboardLayout>
+      )}
+    </div>
   );
 };

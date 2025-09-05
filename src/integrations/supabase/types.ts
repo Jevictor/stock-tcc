@@ -38,6 +38,51 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          state: string | null
+          updated_at: string
+          user_id: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category_id: string | null
@@ -127,6 +172,7 @@ export type Database = {
       stock_movements: {
         Row: {
           created_at: string | null
+          customer_id: string | null
           id: string
           movement_date: string | null
           movement_type: string
@@ -141,6 +187,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          customer_id?: string | null
           id?: string
           movement_date?: string | null
           movement_type: string
@@ -155,6 +202,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          customer_id?: string | null
           id?: string
           movement_date?: string | null
           movement_type?: string
