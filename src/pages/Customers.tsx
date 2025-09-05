@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,11 +157,16 @@ export const Customers = () => {
 
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Carregando clientes...</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">Carregando clientes...</div>
+      </DashboardLayout>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Clientes</h1>
@@ -335,5 +341,6 @@ export const Customers = () => {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 };

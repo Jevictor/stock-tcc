@@ -217,6 +217,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_stock_movements_customer"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_movements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false

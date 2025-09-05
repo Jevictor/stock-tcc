@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -212,12 +213,17 @@ export const StockOut = () => {
   ];
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Carregando...</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">Carregando...</div>
+      </DashboardLayout>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
             <TrendingDown className="h-8 w-8 text-destructive" />
@@ -361,6 +367,7 @@ export const StockOut = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };

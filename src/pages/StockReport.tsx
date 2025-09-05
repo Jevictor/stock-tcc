@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
@@ -180,11 +181,16 @@ export const StockReport = () => {
   const outOfStockCount = filteredProducts.filter(p => p.current_stock <= 0).length;
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Carregando relatório...</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">Carregando relatório...</div>
+      </DashboardLayout>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <BarChart3 className="h-8 w-8 text-primary" />
@@ -402,5 +408,6 @@ export const StockReport = () => {
         </Card>
       )}
     </div>
+    </DashboardLayout>
   );
 };
