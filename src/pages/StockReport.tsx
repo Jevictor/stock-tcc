@@ -252,12 +252,12 @@ export const StockReport = () => {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory === "" ? "all" : selectedCategory} onValueChange={(value) => setSelectedCategory(value === "all" ? "" : value)}>
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filtrar por categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as categorias</SelectItem>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -266,12 +266,12 @@ export const StockReport = () => {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+              <Select value={selectedSupplier === "" ? "all" : selectedSupplier} onValueChange={(value) => setSelectedSupplier(value === "all" ? "" : value)}>
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filtrar por fornecedor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os fornecedores</SelectItem>
+                  <SelectItem value="all">Todos os fornecedores</SelectItem>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier.id} value={supplier.id}>
                       {supplier.name}

@@ -46,7 +46,7 @@ export const StockOut = () => {
   const [formData, setFormData] = useState({
     product_id: "",
     quantity: "",
-    customer_id: "",
+    customer_id: "none",
     reason: "",
     notes: ""
   });
@@ -176,7 +176,7 @@ export const StockOut = () => {
       setFormData({
         product_id: "",
         quantity: "",
-        customer_id: "",
+        customer_id: "none",
         reason: "",
         notes: ""
       });
@@ -269,12 +269,12 @@ export const StockOut = () => {
 
                 <div>
                   <Label htmlFor="customer">Cliente (Opcional)</Label>
-                  <Select value={formData.customer_id} onValueChange={(value) => setFormData({...formData, customer_id: value})}>
+                  <Select value={formData.customer_id === "" ? "none" : formData.customer_id} onValueChange={(value) => setFormData({...formData, customer_id: value === "none" ? "" : value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um cliente (opcional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum cliente</SelectItem>
+                      <SelectItem value="none">Nenhum cliente</SelectItem>
                       {customers.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.name}
