@@ -16,14 +16,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         showMenuButton
       />
       
-      <div className="flex">
+      <div className="flex min-h-[calc(100vh-4rem)]">
         <Sidebar 
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
         
-        <main className="flex-1 p-6 md:ml-0">
-          {children}
+        <main className="flex-1 p-4 md:p-6 w-full min-w-0">
+          <div className="mx-auto max-w-7xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>

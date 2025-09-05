@@ -39,8 +39,8 @@ export const Sidebar = ({ isOpen = true, onClose }: SidebarProps) => {
       )}
       
       <aside className={cn(
-        "fixed top-0 left-0 z-50 h-full w-64 bg-gradient-primary border-r shadow-strong transition-transform duration-300 ease-in-out md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:translate-x-0",
-        isOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed top-0 left-0 z-50 h-full w-64 bg-gradient-primary border-r shadow-strong transition-transform duration-300 ease-in-out md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:translate-x-0 md:w-64",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="flex h-full flex-col">
           {/* Mobile header */}

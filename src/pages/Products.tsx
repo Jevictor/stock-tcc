@@ -255,33 +255,33 @@ export const Products = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-primary">Produtos</h1>
-            <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-primary">Produtos</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
               Gerencie o cadastro dos seus produtos
             </p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-primary shadow-elegant">
+              <Button className="bg-gradient-primary shadow-elegant w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Produto
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px] mx-4 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
+                <DialogTitle className="text-lg">
                   {editingProduct ? "Editar Produto" : "Cadastrar Novo Produto"}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-sm">
                   {editingProduct ? "Atualize as informações do produto." : "Preencha os dados do novo produto."}
                 </DialogDescription>
               </DialogHeader>
               
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="code">Código</Label>
                     <Input
@@ -309,10 +309,11 @@ export const Products = () => {
                     placeholder="Descrição do produto"
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    rows={3}
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Categoria</Label>
                     <Select value={formData.category_id} onValueChange={(value) => setFormData({...formData, category_id: value})}>
@@ -341,7 +342,7 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="costPrice">Preço de Custo</Label>
                     <Input
@@ -378,11 +379,11 @@ export const Products = () => {
                 </div>
               </div>
               
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary">
+                <Button onClick={handleSave} className="bg-gradient-primary w-full sm:w-auto">
                   {editingProduct ? "Atualizar" : "Cadastrar"}
                 </Button>
               </DialogFooter>
@@ -393,7 +394,7 @@ export const Products = () => {
         {/* Search and Filters */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Package className="h-5 w-5" />
               Lista de Produtos
             </CardTitle>
@@ -411,7 +412,8 @@ export const Products = () => {
               </div>
             </div>
 
-            <div className="border rounded-lg">
+            {/* Desktop Table */}
+            <div className="hidden lg:block border rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -468,6 +470,67 @@ export const Products = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Cards */}
+            <div className="lg:hidden space-y-4">
+              {filteredProducts.map((product) => (
+                <Card key={product.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium truncate">{product.name}</h3>
+                          {getStatusBadge(product)}
+                        </div>
+                        <p className="text-sm font-mono text-muted-foreground">{product.code}</p>
+                        {product.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(product)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Categoria:</span>
+                        <p className="font-medium">{product.categories?.name || 'Sem categoria'}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Preço:</span>
+                        <p className="font-medium">R$ {(product.sale_price || 0).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Estoque:</span>
+                        <p className="font-semibold">{product.current_stock || 0} unidades</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nenhum produto encontrado</h3>
+                <p className="text-muted-foreground">Tente ajustar sua busca ou adicione um novo produto.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

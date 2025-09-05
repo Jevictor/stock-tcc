@@ -204,7 +204,7 @@ export const StockReport = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-6 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -274,7 +274,7 @@ export const StockReport = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -285,7 +285,7 @@ export const StockReport = () => {
                 />
               </div>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
@@ -300,65 +300,67 @@ export const StockReport = () => {
               </Select>
             </div>
 
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Estoque</TableHead>
-                    <TableHead>Preço Padrão</TableHead>
-                    <TableHead>Preço Médio Entrada</TableHead>
-                    <TableHead>Última Entrada</TableHead>
-                    <TableHead>Valor Total</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground">{product.code}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{product.categories?.name || 'Sem categoria'}</TableCell>
-                      <TableCell className="text-center font-semibold">
-                        {product.current_stock || 0} {product.unit_measure}
-                      </TableCell>
-                      <TableCell>R$ {(product.cost_price || 0).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div>R$ {(product.averageEntryPrice || 0).toFixed(2)}</div>
-                          {product.entriesCount && product.entriesCount > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              {product.entriesCount} entrada{product.entriesCount !== 1 ? 's' : ''}
-                            </div>
-                          )}
-                          {!product.entriesCount || product.entriesCount === 0 && (
-                            <div className="text-xs text-muted-foreground">Sem entradas</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div>R$ {(product.lastEntryPrice || 0).toFixed(2)}</div>
-                          {product.lastMovementDate && (
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(product.lastMovementDate).toLocaleDateString('pt-BR')}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        R$ {((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0)).toFixed(2)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(product)}</TableCell>
+            <div className="overflow-x-auto">
+              <div className="border rounded-lg min-w-[800px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[150px]">Produto</TableHead>
+                      <TableHead className="min-w-[120px]">Categoria</TableHead>
+                      <TableHead className="min-w-[100px]">Estoque</TableHead>
+                      <TableHead className="min-w-[120px]">Preço Padrão</TableHead>
+                      <TableHead className="min-w-[140px]">Preço Médio Entrada</TableHead>
+                      <TableHead className="min-w-[130px]">Última Entrada</TableHead>
+                      <TableHead className="min-w-[120px]">Valor Total</TableHead>
+                      <TableHead className="min-w-[100px]">Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="min-w-[150px]">
+                          <div>
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm text-muted-foreground">{product.code}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[120px]">{product.categories?.name || 'Sem categoria'}</TableCell>
+                        <TableCell className="text-center font-semibold min-w-[100px]">
+                          {product.current_stock || 0} {product.unit_measure}
+                        </TableCell>
+                        <TableCell className="min-w-[120px]">R$ {(product.cost_price || 0).toFixed(2)}</TableCell>
+                        <TableCell className="min-w-[140px]">
+                          <div>
+                            <div>R$ {(product.averageEntryPrice || 0).toFixed(2)}</div>
+                            {product.entriesCount && product.entriesCount > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {product.entriesCount} entrada{product.entriesCount !== 1 ? 's' : ''}
+                              </div>
+                            )}
+                            {!product.entriesCount || product.entriesCount === 0 && (
+                              <div className="text-xs text-muted-foreground">Sem entradas</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[130px]">
+                          <div>
+                            <div>R$ {(product.lastEntryPrice || 0).toFixed(2)}</div>
+                            {product.lastMovementDate && (
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(product.lastMovementDate).toLocaleDateString('pt-BR')}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-semibold min-w-[120px]">
+                          R$ {((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0)).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="min-w-[100px]">{getStatusBadge(product)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </CardContent>
         </Card>

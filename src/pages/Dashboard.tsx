@@ -111,15 +111,15 @@ export const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
-          <p className="text-muted-foreground">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Visão geral do seu controle de estoque
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-card hover:shadow-elegant transition-all">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -183,7 +183,7 @@ export const Dashboard = () => {
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Recent Movements */}
           <Card className="shadow-card">
             <CardHeader>
@@ -199,31 +199,29 @@ export const Dashboard = () => {
               <div className="space-y-4">
                 {recentMovements.length > 0 ? (
                   recentMovements.map((movement) => (
-                    <div key={movement.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${
-                          movement.movement_type === 'in' 
-                            ? 'bg-success/20 text-success' 
-                            : 'bg-warning/20 text-warning'
-                        }`}>
-                          {movement.movement_type === 'in' ? (
-                            <TrendingUp className="h-4 w-4" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-primary">{movement.products?.name || 'Produto não encontrado'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {movement.suppliers?.name || movement.reason || 'Sem fornecedor'}
-                          </p>
-                        </div>
+                  <div key={movement.id} className="flex items-start gap-3 py-2 border-b last:border-b-0">
+                      <div className={`p-2 rounded-full shrink-0 ${
+                        movement.movement_type === 'in' 
+                          ? 'bg-success/20 text-success' 
+                          : 'bg-warning/20 text-warning'
+                      }`}>
+                        {movement.movement_type === 'in' ? (
+                          <TrendingUp className="h-4 w-4" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4" />
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-primary">{movement.quantity}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {movement.movement_date ? new Date(movement.movement_date).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-primary truncate">{movement.products?.name || 'Produto não encontrado'}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {movement.suppliers?.name || movement.reason || 'Sem fornecedor'}
                         </p>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="font-medium text-primary text-sm">{movement.quantity}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {movement.movement_date ? new Date(movement.movement_date).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -251,18 +249,18 @@ export const Dashboard = () => {
               <div className="space-y-4">
                 {lowStockProducts.length > 0 ? (
                   lowStockProducts.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div>
-                        <p className="font-medium text-primary">{product.name}</p>
+                    <div key={product.id} className="flex items-start gap-3 py-2 border-b last:border-b-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-primary truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">
                           Estoque mínimo: {product.min_stock || 0}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="font-bold text-destructive">
                           {product.current_stock || 0}
                         </p>
-                        <div className="text-xs px-2 py-1 rounded-full bg-destructive/20 text-destructive">
+                        <div className="text-xs px-2 py-1 rounded-full bg-destructive/20 text-destructive whitespace-nowrap">
                           Crítico
                         </div>
                       </div>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -188,19 +189,19 @@ export const Categories = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
-              <Tag className="h-8 w-8" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-primary flex items-center gap-2">
+              <Tag className="h-6 w-6 md:h-8 md:w-8" />
               Categorias
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground">
               Gerencie as categorias dos seus produtos
             </p>
           </div>
           <Button 
             onClick={() => setIsDialogOpen(true)}
-            className="shadow-card hover:shadow-elegant transition-all"
+            className="shadow-card hover:shadow-elegant transition-all w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             Nova Categoria
@@ -218,68 +219,114 @@ export const Categories = () => {
         </div>
 
         {/* Categories Table */}
-        <div className="border rounded-lg overflow-hidden shadow-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Criada em</TableHead>
-                <TableHead className="w-24">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-medium">
-                      {category.name}
-                    </TableCell>
-                    <TableCell>
-                      {category.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(category.created_at!).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(category)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+        <div className="space-y-4">
+          {/* Desktop Table */}
+          <div className="hidden md:block border rounded-lg overflow-hidden shadow-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Criada em</TableHead>
+                  <TableHead className="w-24">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCategories.length > 0 ? (
+                  filteredCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">
+                        {category.name}
+                      </TableCell>
+                      <TableCell>
+                        {category.description || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(category.created_at!).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(category)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDelete(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6">
+                      Nenhuma categoria encontrada
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6">
-                    Nenhuma categoria encontrada
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredCategories.length > 0 ? (
+              filteredCategories.map((category) => (
+                <Card key={category.id} className="p-4">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-primary mb-1">{category.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {category.description || 'Sem descrição'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Criada em: {new Date(category.created_at!).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(category)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(category.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nenhuma categoria encontrada</h3>
+                <p className="text-muted-foreground">Tente ajustar sua busca ou adicione uma nova categoria.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Add/Edit Category Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={resetForm}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] mx-4">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-lg">
                 {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-sm">
                 {editingCategory 
                   ? 'Atualize as informações da categoria'
                   : 'Preencha as informações da nova categoria'
@@ -307,11 +354,11 @@ export const Categories = () => {
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={resetForm}>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={resetForm} className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} className="w-full sm:w-auto">
                 {editingCategory ? 'Atualizar' : 'Criar'}
               </Button>
             </DialogFooter>

@@ -371,7 +371,7 @@ export const StockIn = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -439,21 +439,22 @@ export const StockIn = () => {
               </div>
             </div>
 
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Quantidade</TableHead>
-                    <TableHead>Preço Unit.</TableHead>
-                    <TableHead>Valor Total</TableHead>
-                    <TableHead>Variação</TableHead>
-                    <TableHead>Observações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="overflow-x-auto">
+              <div className="border rounded-lg min-w-[900px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Quantidade</TableHead>
+                      <TableHead>Preço Unit.</TableHead>
+                      <TableHead>Valor Total</TableHead>
+                      <TableHead>Variação</TableHead>
+                      <TableHead>Observações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                   {filteredEntries.map((entry) => {
                     const product = products.find(p => p.id === entry.product_id);
                     const productCostPrice = product?.cost_price || 0;
@@ -495,7 +496,8 @@ export const StockIn = () => {
                     );
                   })}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             </div>
           </CardContent>
         </Card>

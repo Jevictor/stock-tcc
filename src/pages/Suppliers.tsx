@@ -214,33 +214,33 @@ export const Suppliers = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-primary">Fornecedores</h1>
-            <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-primary">Fornecedores</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
               Gerencie o cadastro dos seus fornecedores
             </p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-primary shadow-elegant">
+              <Button className="bg-gradient-primary shadow-elegant w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Fornecedor
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px] mx-4 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
+                <DialogTitle className="text-lg">
                   {editingSupplier ? "Editar Fornecedor" : "Cadastrar Novo Fornecedor"}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-sm">
                   {editingSupplier ? "Atualize as informações do fornecedor." : "Preencha os dados do novo fornecedor."}
                 </DialogDescription>
               </DialogHeader>
               
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome/Razão Social</Label>
                     <Input
@@ -261,7 +261,7 @@ export const Suppliers = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">E-mail</Label>
                     <Input
@@ -293,7 +293,7 @@ export const Suppliers = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="city">Cidade</Label>
                     <Input
@@ -324,11 +324,11 @@ export const Suppliers = () => {
                 </div>
               </div>
               
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary" disabled={saving}>
+                <Button onClick={handleSave} className="bg-gradient-primary w-full sm:w-auto" disabled={saving}>
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingSupplier ? "Atualizar" : "Cadastrar"}
                 </Button>
@@ -340,7 +340,7 @@ export const Suppliers = () => {
         {/* Search and List */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Truck className="h-5 w-5" />
               Lista de Fornecedores
             </CardTitle>
@@ -358,79 +358,160 @@ export const Suppliers = () => {
               </div>
             </div>
 
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome/Razão Social</TableHead>
-                    <TableHead>CNPJ/CPF</TableHead>
-                    <TableHead>Contatos</TableHead>
-                    <TableHead>Localização</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSuppliers.map((supplier) => (
-                    <TableRow key={supplier.id}>
-                      <TableCell>
+            {/* Desktop Table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <div className="border rounded-lg min-w-[700px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[200px]">Nome/Razão Social</TableHead>
+                      <TableHead className="min-w-[150px]">CNPJ/CPF</TableHead>
+                      <TableHead className="min-w-[200px]">Contatos</TableHead>
+                      <TableHead className="min-w-[150px]">Localização</TableHead>
+                      <TableHead className="min-w-[100px]">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSuppliers.map((supplier) => (
+                      <TableRow key={supplier.id}>
+                        <TableCell className="min-w-[200px]">
+                          <div>
+                            <p className="font-medium">{supplier.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Cadastrado em: {new Date(supplier.created_at || '').toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm min-w-[150px]">{supplier.cnpj_cpf || '-'}</TableCell>
+                        <TableCell className="min-w-[200px]">
+                          <div className="space-y-1">
+                            {supplier.phone && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3" />
+                                {supplier.phone}
+                              </div>
+                            )}
+                            {supplier.email && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <Mail className="h-3 w-3" />
+                                {supplier.email}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[150px]">
+                          {supplier.city || supplier.state ? (
+                            <div className="flex items-center gap-1 text-sm">
+                              <MapPin className="h-3 w-3" />
+                              <span>{supplier.city}{supplier.city && supplier.state ? ', ' : ''}{supplier.state}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-[100px]">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(supplier)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(supplier)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="lg:hidden space-y-4">
+              {filteredSuppliers.map((supplier) => (
+                <Card key={supplier.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-primary mb-1">{supplier.name}</h3>
+                        <p className="text-sm font-mono text-muted-foreground mb-2">
+                          {supplier.cnpj_cpf || 'Sem CNPJ/CPF'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Cadastrado em: {new Date(supplier.created_at || '').toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(supplier)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(supplier)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      {(supplier.phone || supplier.email) && (
                         <div>
-                          <p className="font-medium">{supplier.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Cadastrado em: {new Date(supplier.created_at || '').toLocaleDateString('pt-BR')}
-                          </p>
+                          <span className="text-muted-foreground">Contatos:</span>
+                          <div className="mt-1 space-y-1">
+                            {supplier.phone && (
+                              <div className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {supplier.phone}
+                              </div>
+                            )}
+                            {supplier.email && (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {supplier.email}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{supplier.cnpj_cpf || '-'}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {supplier.phone && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Phone className="h-3 w-3" />
-                              {supplier.phone}
-                            </div>
-                          )}
-                          {supplier.email && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Mail className="h-3 w-3" />
-                              {supplier.email}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {supplier.city || supplier.state ? (
-                          <div className="flex items-center gap-1 text-sm">
+                      )}
+                      
+                      {(supplier.city || supplier.state) && (
+                        <div>
+                          <span className="text-muted-foreground">Localização:</span>
+                          <div className="flex items-center gap-1 mt-1">
                             <MapPin className="h-3 w-3" />
                             <span>{supplier.city}{supplier.city && supplier.state ? ', ' : ''}{supplier.state}</span>
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(supplier)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(supplier)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
+
+            {filteredSuppliers.length === 0 && (
+              <div className="text-center py-8">
+                <Truck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nenhum fornecedor encontrado</h3>
+                <p className="text-muted-foreground">Tente ajustar sua busca ou adicione um novo fornecedor.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
