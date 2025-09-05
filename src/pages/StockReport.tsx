@@ -62,17 +62,21 @@ export const StockReport = () => {
   const fetchProducts = async () => {
     if (!user) return;
     
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        categories (name)
-      `)
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          categories (name)
+        `)
+        .order('name');
 
-    if (error) {
-      console.error('Erro ao carregar produtos:', error);
-    } else {
+      if (error) {
+        console.error('Erro ao carregar produtos:', error);
+        setLoading(false);
+        return;
+      }
+
       // Calculate average entry prices
       const productsWithAverage = await Promise.all(
         (data || []).map(async (product) => {
@@ -99,6 +103,10 @@ export const StockReport = () => {
       );
       
       setProducts(productsWithAverage);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
