@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Product = Tables<'products'> & {
   categories?: { name: string } | null;
@@ -456,13 +457,22 @@ export const Products = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
+                          <ConfirmDialog
+                            title="Excluir Produto"
+                            description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+                            confirmText="Excluir"
+                            cancelText="Cancelar"
+                            variant="destructive"
+                            onConfirm={() => handleDelete(product)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmDialog>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -495,13 +505,22 @@ export const Products = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
+                        <ConfirmDialog
+                          title="Excluir Produto"
+                          description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          cancelText="Cancelar"
+                          variant="destructive"
+                          onConfirm={() => handleDelete(product)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmDialog>
                       </div>
                     </div>
                     

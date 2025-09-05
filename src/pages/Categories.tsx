@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Category = Tables<'categories'>;
 
@@ -142,8 +143,6 @@ export const Categories = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
-
     try {
       const { error } = await supabase
         .from('categories')
@@ -253,13 +252,21 @@ export const Categories = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <ConfirmDialog
+                            title="Excluir Categoria"
+                            description="Tem certeza que deseja excluir esta categoria? Verifique se não há produtos vinculados a ela."
+                            confirmText="Excluir"
+                            cancelText="Cancelar"
                             variant="destructive"
-                            size="sm"
-                            onClick={() => handleDelete(category.id)}
+                            onConfirm={() => handleDelete(category.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmDialog>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -298,13 +305,21 @@ export const Categories = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <ConfirmDialog
+                        title="Excluir Categoria"
+                        description="Tem certeza que deseja excluir esta categoria? Verifique se não há produtos vinculados a ela."
+                        confirmText="Excluir"
+                        cancelText="Cancelar"
                         variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(category.id)}
+                        onConfirm={() => handleDelete(category.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </ConfirmDialog>
                     </div>
                   </div>
                 </Card>

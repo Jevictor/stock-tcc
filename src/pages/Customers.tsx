@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Customer {
   id: string;
@@ -104,8 +105,6 @@ export const Customers = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
-
     const { error } = await supabase
       .from('customers')
       .delete()
@@ -321,14 +320,22 @@ export const Customers = () => {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(customer.id)}
-                              className="text-destructive hover:text-destructive"
+                            <ConfirmDialog
+                              title="Excluir Cliente"
+                              description="Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              cancelText="Cancelar"
+                              variant="destructive"
+                              onConfirm={() => handleDelete(customer.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmDialog>
                           </div>
                         </TableCell>
                       </TableRow>
