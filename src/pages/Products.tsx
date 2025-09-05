@@ -58,8 +58,7 @@ export const Products = () => {
     unit_measure: "",
     cost_price: "",
     sale_price: "",
-    min_stock: "",
-    max_stock: ""
+    current_stock: ""
   });
 
   // Load products and categories
@@ -130,8 +129,9 @@ export const Products = () => {
         unit_measure: formData.unit_measure,
         cost_price: parseFloat(formData.cost_price) || 0,
         sale_price: parseFloat(formData.sale_price) || 0,
-        min_stock: parseInt(formData.min_stock) || 0,
-        max_stock: parseInt(formData.max_stock) || 0,
+        current_stock: parseInt(formData.current_stock) || 0,
+        min_stock: 0,
+        max_stock: 0,
         user_id: user.id
       };
 
@@ -186,8 +186,7 @@ export const Products = () => {
       unit_measure: product.unit_measure,
       cost_price: product.cost_price?.toString() || "",
       sale_price: product.sale_price?.toString() || "",
-      min_stock: product.min_stock?.toString() || "",
-      max_stock: product.max_stock?.toString() || ""
+      current_stock: product.current_stock?.toString() || ""
     });
     setIsDialogOpen(true);
   };
@@ -229,19 +228,17 @@ export const Products = () => {
       unit_measure: "",
       cost_price: "",
       sale_price: "",
-      min_stock: "",
-      max_stock: ""
+      current_stock: ""
     });
   };
 
   const getStatusBadge = (product: Product) => {
     const currentStock = product.current_stock || 0;
-    const minStock = product.min_stock || 0;
     
-    if (currentStock <= minStock) {
-      return <Badge variant="destructive">Estoque Baixo</Badge>;
+    if (currentStock === 0) {
+      return <Badge variant="destructive">Sem Estoque</Badge>;
     }
-    return <Badge className="bg-success text-success-foreground">Ativo</Badge>;
+    return <Badge className="bg-success text-success-foreground">Em Estoque</Badge>;
   };
 
   if (loading) {
@@ -369,27 +366,15 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Estoque Mínimo</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.min_stock}
-                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStock">Estoque Máximo</Label>
-                    <Input
-                      id="maxStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.max_stock}
-                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentStock">Estoque Atual</Label>
+                  <Input
+                    id="currentStock"
+                    type="number"
+                    placeholder="0"
+                    value={formData.current_stock}
+                    onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
+                  />
                 </div>
               </div>
               
@@ -456,9 +441,7 @@ export const Products = () => {
                       <TableCell>
                         <div className="text-center">
                           <p className="font-semibold">{product.current_stock || 0}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Min: {product.min_stock || 0}
-                          </p>
+                          <p className="text-xs text-muted-foreground">unidades</p>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(product)}</TableCell>
