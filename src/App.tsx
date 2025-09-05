@@ -14,6 +14,7 @@ import { Suppliers } from "./pages/Suppliers";
 import { StockIn } from "./pages/StockIn";
 import { StockOut } from "./pages/StockOut";
 import { StockReport } from "./pages/StockReport";
+import { Categories } from "./pages/Categories";
 import NotFound from "./pages/NotFound";
 
 console.log('App: Module loading');
@@ -62,6 +63,11 @@ const App = () => {
               <Route path="/stock-report" element={
                 <ProtectedRoute>
                   <StockReport />
+                </ProtectedRoute>
+              } />
+              <Route path="/categories" element={
+                <ProtectedRoute>
+                  <Categories />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

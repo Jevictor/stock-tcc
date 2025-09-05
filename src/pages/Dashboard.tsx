@@ -69,8 +69,8 @@ export const Dashboard = () => {
       const activeSuppliers = suppliers?.length || 0;
       const stockValue = products?.reduce((sum, product) => {
         const currentStock = product.current_stock || 0;
-        const costPrice = product.cost_price || 0;
-        return sum + (currentStock * costPrice);
+        const salePrice = product.sale_price || 0;
+        return sum + (currentStock * salePrice);
       }, 0) || 0;
 
       // Find low stock products

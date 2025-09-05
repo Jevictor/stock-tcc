@@ -6,6 +6,7 @@ import {
   TrendingDown, 
   BarChart3, 
   Home,
+  Tag,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ interface SidebarProps {
 const navItems = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: Package, label: "Produtos", path: "/products" },
+  { icon: Tag, label: "Categorias", path: "/categories" },
   { icon: Truck, label: "Fornecedores", path: "/suppliers" },
   { icon: TrendingUp, label: "Entrada Estoque", path: "/stock-in" },
   { icon: TrendingDown, label: "Saída Estoque", path: "/stock-out" },
