@@ -56,6 +56,8 @@ export const StockIn = () => {
     notes: ""
   });
 
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   const [stats, setStats] = useState({
     todayEntries: 0,
     monthValue: 0,
@@ -199,6 +201,7 @@ export const StockIn = () => {
       unit_price: "",
       notes: ""
     });
+    setSelectedProduct(null);
   };
 
   const calculateTotal = () => {
@@ -272,16 +275,34 @@ export const StockIn = () => {
                 
                 <div className="space-y-2">
                   <Label>Produto</Label>
-                  <Select value={formData.product_id} onValueChange={(value) => setFormData({...formData, product_id: value})}>
+                  <Select value={formData.product_id} onValueChange={(value) => {
+                    const product = products.find(p => p.id === value);
+                    setSelectedProduct(product || null);
+                    setFormData({...formData, product_id: value, unit_price: product?.cost_price?.toString() || ""});
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o produto" />
                     </SelectTrigger>
                     <SelectContent>
                       {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
+                        <SelectItem key={product.id} value={product.id}>
+                          <div className="flex flex-col">
+                            <span>{product.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Estoque: {product.current_stock} | Preço: R$ {(product.cost_price || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedProduct && (
+                    <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                      <div>Estoque atual: <span className="font-semibold">{selectedProduct.current_stock}</span></div>
+                      <div>Preço de custo padrão: <span className="font-semibold">R$ {(selectedProduct.cost_price || 0).toFixed(2)}</span></div>
+                      <div>Unidade: <span className="font-semibold">{selectedProduct.unit_measure}</span></div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4">
@@ -296,7 +317,7 @@ export const StockIn = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="unit_price">Preço Unitário</Label>
+                    <Label htmlFor="unit_price">Preço Unitário da Entrada</Label>
                     <Input
                       id="unit_price"
                       type="number"
@@ -305,6 +326,15 @@ export const StockIn = () => {
                       value={formData.unit_price}
                       onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
                     />
+                    {selectedProduct && parseFloat(formData.unit_price) !== (selectedProduct.cost_price || 0) && formData.unit_price && (
+                      <div className="text-xs">
+                        {parseFloat(formData.unit_price) > (selectedProduct.cost_price || 0) ? (
+                          <span className="text-warning">⚠️ Preço maior que o padrão (R$ {(selectedProduct.cost_price || 0).toFixed(2)})</span>
+                        ) : (
+                          <span className="text-success">💡 Preço menor que o padrão (R$ {(selectedProduct.cost_price || 0).toFixed(2)})</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Valor Total</Label>
@@ -419,23 +449,51 @@ export const StockIn = () => {
                     <TableHead>Quantidade</TableHead>
                     <TableHead>Preço Unit.</TableHead>
                     <TableHead>Valor Total</TableHead>
+                    <TableHead>Variação</TableHead>
                     <TableHead>Observações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell>
-                        {entry.movement_date ? new Date(entry.movement_date).toLocaleDateString('pt-BR') : '-'}
-                      </TableCell>
-                      <TableCell className="font-medium">{entry.suppliers?.name || 'Sem fornecedor'}</TableCell>
-                      <TableCell>{entry.products?.name || 'Produto não encontrado'}</TableCell>
-                      <TableCell className="text-center font-semibold">{entry.quantity}</TableCell>
-                      <TableCell>R$ {(entry.unit_price || 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-semibold">R$ {(entry.total_value || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-sm">{entry.notes || '-'}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredEntries.map((entry) => {
+                    const product = products.find(p => p.id === entry.product_id);
+                    const productCostPrice = product?.cost_price || 0;
+                    const entryUnitPrice = entry.unit_price || 0;
+                    const priceDifference = entryUnitPrice - productCostPrice;
+                    
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell>
+                          {entry.movement_date ? new Date(entry.movement_date).toLocaleDateString('pt-BR') : '-'}
+                        </TableCell>
+                        <TableCell className="font-medium">{entry.suppliers?.name || 'Sem fornecedor'}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div>{entry.products?.name || 'Produto não encontrado'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Preço padrão: R$ {productCostPrice.toFixed(2)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">{entry.quantity}</TableCell>
+                        <TableCell>R$ {entryUnitPrice.toFixed(2)}</TableCell>
+                        <TableCell className="font-semibold">R$ {(entry.total_value || 0).toFixed(2)}</TableCell>
+                        <TableCell>
+                          {priceDifference !== 0 && (
+                            <div className={`text-xs font-medium ${priceDifference > 0 ? 'text-warning' : 'text-success'}`}>
+                              {priceDifference > 0 ? '+' : ''}R$ {priceDifference.toFixed(2)}
+                              <div className="text-muted-foreground">
+                                ({((priceDifference / productCostPrice) * 100).toFixed(1)}%)
+                              </div>
+                            </div>
+                          )}
+                          {priceDifference === 0 && (
+                            <div className="text-xs text-muted-foreground">Padrão</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">{entry.notes || '-'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

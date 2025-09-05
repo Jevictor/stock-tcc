@@ -16,151 +16,171 @@ import { Search, BarChart3, AlertTriangle, Package, Filter, Loader2 } from "luci
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
 
-type StockReportItem = Tables<'products'> & {
+type Product = Tables<'products'> & {
   categories?: { name: string } | null;
-  suppliers?: { name: string } | null;
-  last_movement?: string | null;
+  averageEntryPrice?: number;
+  lastEntryPrice?: number;
+  lastMovementDate?: string | null;
+  entriesCount?: number;
 };
+
+type Category = Tables<'categories'>;
+type Supplier = Tables<'suppliers'>;
 
 export const StockReport = () => {
   const { user } = useAuth();
-  const [stockData, setStockData] = useState<StockReportItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const { toast } = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("Todos");
-  const [supplierFilter, setSupplierFilter] = useState("Todos");
-  const [statusFilter, setStatusFilter] = useState("Todos");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
+  const [summary, setSummary] = useState({
+    totalProducts: 0,
+    totalValue: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0
+  });
 
   useEffect(() => {
     if (user) {
-      loadStockData();
+      loadData();
     }
   }, [user]);
 
-  const loadStockData = async () => {
+  // Load data from Supabase
+  const loadData = async () => {
     try {
       setLoading(true);
-      
-      // Load products with related data
-      const { data: products, error: productsError } = await supabase
+
+      // Load products with categories
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
           categories:category_id (name)
         `)
-        .eq('user_id', user?.id)
-        .order('name');
+        .eq('user_id', user?.id);
 
       if (productsError) throw productsError;
 
-      // Load suppliers separately
+      // Load stock movements for price analysis
+      const { data: movementsData, error: movementsError } = await supabase
+        .from('stock_movements')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('movement_type', 'in')
+        .not('unit_price', 'is', null);
+
+      if (movementsError) throw movementsError;
+
+      // Calculate average entry prices and last entry prices
+      const productsWithPriceInfo = (productsData || []).map(product => {
+        const productMovements = (movementsData || []).filter(m => m.product_id === product.id);
+        
+        let averageEntryPrice = 0;
+        let lastEntryPrice = 0;
+        let lastMovementDate = null;
+        
+        if (productMovements.length > 0) {
+          // Calculate weighted average (quantity * price) / total quantity
+          const totalValue = productMovements.reduce((sum, m) => sum + ((m.quantity || 0) * (m.unit_price || 0)), 0);
+          const totalQuantity = productMovements.reduce((sum, m) => sum + (m.quantity || 0), 0);
+          averageEntryPrice = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+          
+          // Get last entry price
+          const sortedMovements = productMovements.sort((a, b) => 
+            new Date(b.movement_date || '').getTime() - new Date(a.movement_date || '').getTime()
+          );
+          lastEntryPrice = sortedMovements[0]?.unit_price || 0;
+          lastMovementDate = sortedMovements[0]?.movement_date;
+        }
+
+        return {
+          ...product,
+          averageEntryPrice,
+          lastEntryPrice,
+          lastMovementDate,
+          entriesCount: productMovements.length
+        };
+      });
+
+      setProducts(productsWithPriceInfo);
+
+      // Load categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (categoriesError) throw categoriesError;
+
+      setCategories(categoriesData || []);
+
+      // Load suppliers
       const { data: suppliersData, error: suppliersError } = await supabase
         .from('suppliers')
-        .select('id, name')
+        .select('*')
         .eq('user_id', user?.id);
 
       if (suppliersError) throw suppliersError;
 
-      // Get last movement date for each product
-      const productsWithMovements = await Promise.all(
-        (products || []).map(async (product) => {
-          const { data: lastMovement } = await supabase
-            .from('stock_movements')
-            .select('movement_date')
-            .eq('product_id', product.id)
-            .eq('user_id', user?.id)
-            .order('movement_date', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      setSuppliers(suppliersData || []);
 
-          return {
-            ...product,
-            last_movement: lastMovement?.movement_date || null
-          };
-        })
-      );
+      // Calculate summary
+      const totalProducts = productsWithPriceInfo.length;
+      const totalValue = productsWithPriceInfo.reduce((sum, product) => {
+        return sum + ((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0));
+      }, 0);
+      const lowStockCount = productsWithPriceInfo.filter(product => 
+        (product.current_stock || 0) === 0
+      ).length;
+      const outOfStockCount = productsWithPriceInfo.filter(product => 
+        (product.current_stock || 0) === 0
+      ).length;
 
-      setStockData(productsWithMovements);
-
-      // Extract unique categories and suppliers
-      const uniqueCategories = [...new Set(productsWithMovements
-        .map(p => p.categories?.name)
-        .filter(Boolean))] as string[];
-      
-      const uniqueSuppliers = suppliersData?.map(s => s.name) || [];
-
-      setCategories(['Todos', ...uniqueCategories]);
-      setSuppliers(['Todos', ...uniqueSuppliers]);
+      setSummary({
+        totalProducts,
+        totalValue,
+        lowStockCount,
+        outOfStockCount
+      });
 
     } catch (error) {
-      console.error('Error loading stock data:', error);
+      console.error('Error loading data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da página.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const getProductStatus = (product: StockReportItem) => {
-    const currentStock = product.current_stock || 0;
-    const minStock = product.min_stock || 0;
-    
-    if (currentStock === 0) return 'out_of_stock';
-    if (currentStock <= minStock * 0.5) return 'critical';
-    if (currentStock <= minStock) return 'low';
-    return 'normal';
-  };
-
-  const filteredStock = stockData.filter(item => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.categories?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.categories?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = categoryFilter === "Todos" || item.categories?.name === categoryFilter;
-    const matchesSupplier = supplierFilter === "Todos" || suppliers.includes(supplierFilter);
+    const matchesCategory = categoryFilter === "all" || product.category_id === categoryFilter;
     
-    const status = getProductStatus(item);
-    const matchesStatus = statusFilter === "Todos" || status === statusFilter;
-    
-    return matchesSearch && matchesCategory && matchesSupplier && matchesStatus;
+    return matchesSearch && matchesCategory;
   });
 
-  const getStatusBadge = (product: StockReportItem) => {
-    const status = getProductStatus(product);
+  const getStatusBadge = (product: Product) => {
+    const currentStock = product.current_stock || 0;
     
-    switch (status) {
-      case "out_of_stock":
-        return <Badge variant="destructive">Sem Estoque</Badge>;
-      case "critical":
-        return <Badge variant="destructive">Crítico</Badge>;
-      case "low":
-        return <Badge className="bg-warning text-warning-foreground">Baixo</Badge>;
-      default:
-        return <Badge className="bg-success text-success-foreground">Normal</Badge>;
+    if (currentStock === 0) {
+      return <Badge variant="destructive">Sem Estoque</Badge>;
     }
+    return <Badge className="bg-success text-success-foreground">Em Estoque</Badge>;
   };
-
-  const calculateSummary = () => {
-    const totalProducts = stockData.length;
-    const totalValue = stockData.reduce((sum, item) => {
-      const currentStock = item.current_stock || 0;
-      const costPrice = item.cost_price || 0;
-      return sum + (currentStock * costPrice);
-    }, 0);
-    
-    const lowStockCount = stockData.filter(item => {
-      const status = getProductStatus(item);
-      return status === "low" || status === "critical";
-    }).length;
-    
-    const outOfStockCount = stockData.filter(item => getProductStatus(item) === "out_of_stock").length;
-    
-    return { totalProducts, totalValue, lowStockCount, outOfStockCount };
-  };
-
-  const summary = calculateSummary();
 
   if (loading) {
     return (
@@ -179,7 +199,7 @@ export const StockReport = () => {
         <div>
           <h1 className="text-3xl font-bold text-primary">Consulta de Estoque</h1>
           <p className="text-muted-foreground">
-            Visualize saldos, alertas e relatórios de estoque
+            Visualize saldos, preços de entrada e relatórios detalhados
           </p>
         </div>
 
@@ -200,7 +220,7 @@ export const StockReport = () => {
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Valor Total
+                Valor Total (Preço Médio)
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-accent" />
             </CardHeader>
@@ -208,6 +228,9 @@ export const StockReport = () => {
               <div className="text-2xl font-bold text-primary">
                 R$ {summary.totalValue.toFixed(2)}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Baseado no preço médio de entrada
+              </p>
             </CardContent>
           </Card>
 
@@ -242,18 +265,17 @@ export const StockReport = () => {
           </Card>
         </div>
 
-        {/* Stock Report */}
+        {/* Product Report */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Relatório de Estoque
+              Relatório Detalhado de Produtos
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Filters */}
-            <div className="grid gap-4 md:grid-cols-5 mb-6">
-              <div className="relative">
+            <div className="flex gap-4 mb-6">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar produtos..."
@@ -262,102 +284,77 @@ export const StockReport = () => {
                   className="pl-10"
                 />
               </div>
-              
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[200px]">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue />
+                  <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">Todas Categorias</SelectItem>
                   {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-
-              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Fornecedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier} value={supplier}>
-                      {supplier}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Todos">Todos Status</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="low">Estoque Baixo</SelectItem>
-                  <SelectItem value="critical">Crítico</SelectItem>
-                  <SelectItem value="out_of_stock">Sem Estoque</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center text-sm text-muted-foreground">
-                {filteredStock.length} produtos encontrados
-              </div>
             </div>
 
-            {/* Stock Table */}
             <div className="border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead className="text-center">Estoque</TableHead>
-                    <TableHead className="text-center">Mín/Máx</TableHead>
-                    <TableHead className="text-right">Valor Unit.</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead>Estoque</TableHead>
+                    <TableHead>Preço Padrão</TableHead>
+                    <TableHead>Preço Médio Entrada</TableHead>
+                    <TableHead>Última Entrada</TableHead>
+                    <TableHead>Valor Total</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Última Mov.</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredStock.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                  {filteredProducts.map((product) => (
+                    <TableRow key={product.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{item.name}</p>
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-muted-foreground">{product.code}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{item.categories?.name || 'Sem categoria'}</TableCell>
-                      <TableCell className="text-center">
-                        <span className={`font-bold ${
-                          getProductStatus(item) === 'out_of_stock' ? 'text-destructive' :
-                          getProductStatus(item) === 'critical' ? 'text-destructive' :
-                          getProductStatus(item) === 'low' ? 'text-warning' : 'text-primary'
-                        }`}>
-                          {item.current_stock || 0}
-                        </span>
+                      <TableCell>{product.categories?.name || 'Sem categoria'}</TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {product.current_stock || 0} {product.unit_measure}
                       </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        {item.min_stock || 0}/{item.max_stock || 0}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        R$ {(item.cost_price || 0).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        R$ {((item.current_stock || 0) * (item.cost_price || 0)).toFixed(2)}
+                      <TableCell>R$ {(product.cost_price || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div>R$ {(product.averageEntryPrice || 0).toFixed(2)}</div>
+                          {product.entriesCount && product.entriesCount > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {product.entriesCount} entrada{product.entriesCount !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          {!product.entriesCount || product.entriesCount === 0 && (
+                            <div className="text-xs text-muted-foreground">Sem entradas</div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(item)}
+                        <div>
+                          <div>R$ {(product.lastEntryPrice || 0).toFixed(2)}</div>
+                          {product.lastMovementDate && (
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(product.lastMovementDate).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {item.last_movement ? new Date(item.last_movement).toLocaleDateString('pt-BR') : 'Nunca'}
+                      <TableCell className="font-semibold">
+                        R$ {((product.current_stock || 0) * (product.averageEntryPrice || product.cost_price || 0)).toFixed(2)}
                       </TableCell>
+                      <TableCell>{getStatusBadge(product)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
