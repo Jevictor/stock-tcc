@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,92 +23,177 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Search, TrendingDown, ShoppingCart, User } from "lucide-react";
+import { Plus, Search, TrendingDown, ShoppingCart, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
-const mockExits = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    type: "Venda",
-    customer: "Cliente ABC Ltda",
-    product: "Mouse Gamer RGB",
-    quantity: 12,
-    unitPrice: 89.90,
-    totalValue: 1078.80,
-    document: "NF-5001"
-  },
-  {
-    id: "2",
-    date: "2024-01-14",
-    type: "Uso Interno",
-    customer: "Departamento TI",
-    product: "Teclado Mecânico",
-    quantity: 3,
-    unitPrice: 199.90,
-    totalValue: 599.70,
-    document: "REQ-001"
-  },
-  {
-    id: "3",
-    date: "2024-01-13",
-    type: "Venda",
-    customer: "Empresa XYZ S/A",
-    product: "Monitor 24\"",
-    quantity: 5,
-    unitPrice: 450.00,
-    totalValue: 2250.00,
-    document: "NF-5002"
-  }
-];
+type StockMovement = Tables<'stock_movements'> & {
+  products?: { name: string } | null;
+};
+
+type Product = Tables<'products'>;
 
 const exitTypes = ["Venda", "Uso Interno", "Devolução", "Perda", "Transferência"];
-const mockProducts = ["Mouse Gamer RGB", "Teclado Mecânico", "Monitor 24\"", "Headset Wireless"];
 
 export const StockOut = () => {
-  const [exits] = useState(mockExits);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [exits, setExits] = useState<StockMovement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    type: "",
-    customer: "",
-    product: "",
+    movement_date: new Date().toISOString().split('T')[0],
+    reason: "",
+    product_id: "",
     quantity: "",
-    unitPrice: "",
-    document: "",
+    unit_price: "",
     notes: ""
   });
 
+  const [stats, setStats] = useState({
+    todayExits: 0,
+    monthSales: 0,
+    monthProducts: 0
+  });
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Load stock movements (exits only)
+      const { data: movements, error: movementsError } = await supabase
+        .from('stock_movements')
+        .select(`
+          *,
+          products:product_id (name)
+        `)
+        .eq('user_id', user?.id)
+        .eq('movement_type', 'out')
+        .order('created_at', { ascending: false });
+
+      if (movementsError) throw movementsError;
+
+      // Load products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (productsError) throw productsError;
+
+      setExits(movements || []);
+      setProducts(productsData || []);
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+      const todayExits = (movements || []).filter(m => 
+        m.movement_date?.split('T')[0] === today
+      ).length;
+
+      const monthSales = (movements || []).filter(m => 
+        m.movement_date?.slice(0, 7) === thisMonth && m.reason === 'Venda'
+      ).reduce((sum, m) => sum + ((m.quantity || 0) * (m.unit_price || 0)), 0);
+
+      const monthProducts = (movements || []).filter(m => 
+        m.movement_date?.slice(0, 7) === thisMonth
+      ).reduce((sum, m) => sum + (m.quantity || 0), 0);
+
+      setStats({
+        todayExits,
+        monthSales,
+        monthProducts
+      });
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da página.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredExits = exits.filter(exit =>
-    exit.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exit.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exit.type.toLowerCase().includes(searchTerm.toLowerCase())
+    (exit.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (exit.products?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (exit.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSave = () => {
-    toast({
-      title: "Saída registrada!",
-      description: "A saída de estoque foi registrada com sucesso e o saldo foi atualizado."
-    });
-    setIsDialogOpen(false);
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+
+      const movementData = {
+        movement_date: formData.movement_date,
+        product_id: formData.product_id,
+        quantity: parseInt(formData.quantity),
+        unit_price: parseFloat(formData.unit_price) || 0,
+        total_value: parseInt(formData.quantity) * (parseFloat(formData.unit_price) || 0),
+        movement_type: 'out' as const,
+        reason: formData.reason,
+        notes: formData.notes || null,
+        user_id: user.id
+      };
+
+      const { error } = await supabase
+        .from('stock_movements')
+        .insert([movementData]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Saída registrada!",
+        description: "A saída de estoque foi registrada com sucesso e o saldo foi atualizado."
+      });
+
+      setIsDialogOpen(false);
+      resetForm();
+      loadData();
+    } catch (error) {
+      console.error('Error saving exit:', error);
+      toast({
+        title: "Erro ao registrar saída",
+        description: "Não foi possível registrar a saída. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
-      date: new Date().toISOString().split('T')[0],
-      type: "",
-      customer: "",
-      product: "",
+      movement_date: new Date().toISOString().split('T')[0],
+      reason: "",
+      product_id: "",
       quantity: "",
-      unitPrice: "",
-      document: "",
+      unit_price: "",
       notes: ""
     });
   };
 
   const calculateTotal = () => {
     const quantity = parseFloat(formData.quantity) || 0;
-    const unitPrice = parseFloat(formData.unitPrice) || 0;
+    const unitPrice = parseFloat(formData.unit_price) || 0;
     return (quantity * unitPrice).toFixed(2);
   };
 
@@ -122,6 +207,16 @@ export const StockOut = () => {
         return <TrendingDown className="h-4 w-4 text-warning" />;
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -153,17 +248,17 @@ export const StockOut = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="date">Data da Saída</Label>
+                    <Label htmlFor="movement_date">Data da Saída</Label>
                     <Input
-                      id="date"
+                      id="movement_date"
                       type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      value={formData.movement_date}
+                      onChange={(e) => setFormData({...formData, movement_date: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Saída</Label>
-                    <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
+                    <Select value={formData.reason} onValueChange={(value) => setFormData({...formData, reason: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
@@ -177,24 +272,16 @@ export const StockOut = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="customer">Cliente/Destino</Label>
-                  <Input
-                    id="customer"
-                    placeholder="Nome do cliente ou departamento"
-                    value={formData.customer}
-                    onChange={(e) => setFormData({...formData, customer: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
                   <Label>Produto</Label>
-                  <Select value={formData.product} onValueChange={(value) => setFormData({...formData, product: value})}>
+                  <Select value={formData.product_id} onValueChange={(value) => setFormData({...formData, product_id: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o produto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockProducts.map((product) => (
-                        <SelectItem key={product} value={product}>{product}</SelectItem>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name} (Estoque: {product.current_stock || 0})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -212,14 +299,14 @@ export const StockOut = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="unitPrice">Preço Unitário</Label>
+                    <Label htmlFor="unit_price">Preço Unitário</Label>
                     <Input
-                      id="unitPrice"
+                      id="unit_price"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.unitPrice}
-                      onChange={(e) => setFormData({...formData, unitPrice: e.target.value})}
+                      value={formData.unit_price}
+                      onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
@@ -230,16 +317,6 @@ export const StockOut = () => {
                       className="bg-muted"
                     />
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="document">Documento</Label>
-                  <Input
-                    id="document"
-                    placeholder="Número da NF, requisição, etc."
-                    value={formData.document}
-                    onChange={(e) => setFormData({...formData, document: e.target.value})}
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -257,7 +334,8 @@ export const StockOut = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary">
+                <Button onClick={handleSave} className="bg-gradient-primary" disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Registrar Saída
                 </Button>
               </DialogFooter>
@@ -275,9 +353,9 @@ export const StockOut = () => {
               <TrendingDown className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">15</div>
+              <div className="text-2xl font-bold text-primary">{stats.todayExits}</div>
               <p className="text-xs text-muted-foreground">
-                +3 desde ontem
+                Registros de hoje
               </p>
             </CardContent>
           </Card>
@@ -290,9 +368,9 @@ export const StockOut = () => {
               <ShoppingCart className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ 45.320</div>
+              <div className="text-2xl font-bold text-primary">R$ {stats.monthSales.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">
-                +22% desde o mês passado
+                Em vendas este mês
               </p>
             </CardContent>
           </Card>
@@ -305,7 +383,7 @@ export const StockOut = () => {
               <User className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">234</div>
+              <div className="text-2xl font-bold text-primary">{stats.monthProducts}</div>
               <p className="text-xs text-muted-foreground">
                 Unidades este mês
               </p>
@@ -326,7 +404,7 @@ export const StockOut = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por cliente, produto ou tipo..."
+                  placeholder="Buscar por tipo, produto ou observações..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -340,28 +418,28 @@ export const StockOut = () => {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Tipo</TableHead>
-                    <TableHead>Cliente/Destino</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Quantidade</TableHead>
                     <TableHead>Valor Total</TableHead>
-                    <TableHead>Documento</TableHead>
+                    <TableHead>Observações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredExits.map((exit) => (
                     <TableRow key={exit.id}>
-                      <TableCell>{exit.date}</TableCell>
+                      <TableCell>
+                        {exit.movement_date ? new Date(exit.movement_date).toLocaleDateString('pt-BR') : '-'}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {getTypeIcon(exit.type)}
-                          {exit.type}
+                          {getTypeIcon(exit.reason || '')}
+                          {exit.reason || 'Não informado'}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{exit.customer}</TableCell>
-                      <TableCell>{exit.product}</TableCell>
+                      <TableCell>{exit.products?.name || 'Produto não encontrado'}</TableCell>
                       <TableCell className="text-center font-semibold">{exit.quantity}</TableCell>
-                      <TableCell className="font-semibold">R$ {exit.totalValue.toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-sm">{exit.document}</TableCell>
+                      <TableCell className="font-semibold">R$ {(exit.total_value || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-sm">{exit.notes || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

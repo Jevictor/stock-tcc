@@ -63,23 +63,16 @@ const benefits = [
 ];
 
 export const Home = () => {
-  console.log('Home: Component rendering');
-  
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  
-  console.log('Home: Auth state', { user: user?.id, loading });
 
   useEffect(() => {
-    console.log('Home: useEffect running', { user: user?.id, loading });
     if (!loading && user) {
-      console.log('Home: Redirecting to dashboard');
       navigate("/dashboard");
     }
   }, [user, loading, navigate]);
 
   if (loading) {
-    console.log('Home: Showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -87,7 +80,6 @@ export const Home = () => {
     );
   }
   
-  console.log('Home: Rendering main content');
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

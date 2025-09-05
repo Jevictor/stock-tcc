@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,105 +22,193 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Edit, Trash2, Truck, Phone, Mail, MapPin } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Truck, Phone, Mail, MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-const mockSuppliers = [
-  {
-    id: "1",
-    name: "TechParts Ltda",
-    document: "12.345.678/0001-90",
-    email: "contato@techparts.com.br",
-    phone: "(11) 99999-9999",
-    address: "Rua da Tecnologia, 123 - São Paulo/SP",
-    status: "active",
-    lastPurchase: "2024-01-10"
-  },
-  {
-    id: "2",
-    name: "Displays Pro",
-    document: "98.765.432/0001-10",
-    email: "vendas@displayspro.com.br", 
-    phone: "(11) 88888-8888",
-    address: "Av. dos Monitores, 456 - São Paulo/SP",
-    status: "active",
-    lastPurchase: "2024-01-05"
-  },
-  {
-    id: "3",
-    name: "ComponenteX",
-    document: "11.222.333/0001-44",
-    email: "pedidos@componentex.com.br",
-    phone: "(11) 77777-7777", 
-    address: "Rua dos Componentes, 789 - São Paulo/SP",
-    status: "inactive",
-    lastPurchase: "2023-12-15"
-  }
-];
+type Supplier = Tables<'suppliers'>;
 
 export const Suppliers = () => {
-  const [suppliers] = useState(mockSuppliers);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<any>(null);
-  const { toast } = useToast();
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
-    document: "",
+    cnpj_cpf: "",
     email: "",
     phone: "",
     address: "",
     city: "",
     state: "",
-    zipCode: ""
+    zip_code: ""
   });
+
+  useEffect(() => {
+    if (user) {
+      loadSuppliers();
+    }
+  }, [user]);
+
+  const loadSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSuppliers(data || []);
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+      toast({
+        title: "Erro ao carregar fornecedores",
+        description: "Não foi possível carregar a lista de fornecedores.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.document.includes(searchTerm) ||
-    supplier.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (supplier.cnpj_cpf || '').includes(searchTerm) ||
+    (supplier.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSave = () => {
-    toast({
-      title: editingSupplier ? "Fornecedor atualizado!" : "Fornecedor cadastrado!",
-      description: editingSupplier ? "As alterações foram salvas com sucesso." : "Novo fornecedor adicionado ao sistema."
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+
+      const supplierData = {
+        name: formData.name,
+        cnpj_cpf: formData.cnpj_cpf || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        zip_code: formData.zip_code || null,
+        user_id: user.id
+      };
+
+      let error;
+
+      if (editingSupplier) {
+        // Update existing supplier
+        const { error: updateError } = await supabase
+          .from('suppliers')
+          .update(supplierData)
+          .eq('id', editingSupplier.id)
+          .eq('user_id', user.id);
+        error = updateError;
+      } else {
+        // Create new supplier
+        const { error: insertError } = await supabase
+          .from('suppliers')
+          .insert([supplierData]);
+        error = insertError;
+      }
+
+      if (error) throw error;
+
+      toast({
+        title: editingSupplier ? "Fornecedor atualizado!" : "Fornecedor cadastrado!",
+        description: editingSupplier ? "As alterações foram salvas com sucesso." : "Novo fornecedor adicionado ao sistema."
+      });
+
+      setIsDialogOpen(false);
+      setEditingSupplier(null);
+      resetForm();
+      loadSuppliers();
+    } catch (error) {
+      console.error('Error saving supplier:', error);
+      toast({
+        title: "Erro ao salvar fornecedor",
+        description: "Não foi possível salvar o fornecedor. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setFormData({
+      name: supplier.name,
+      cnpj_cpf: supplier.cnpj_cpf || "",
+      email: supplier.email || "",
+      phone: supplier.phone || "",
+      address: supplier.address || "",
+      city: supplier.city || "",
+      state: supplier.state || "",
+      zip_code: supplier.zip_code || ""
     });
-    setIsDialogOpen(false);
-    setEditingSupplier(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (supplier: Supplier) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', supplier.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Fornecedor excluído!",
+        description: "O fornecedor foi removido do sistema."
+      });
+
+      loadSuppliers();
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      toast({
+        title: "Erro ao excluir fornecedor",
+        description: "Não foi possível excluir o fornecedor. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       name: "",
-      document: "",
+      cnpj_cpf: "",
       email: "",
       phone: "",
       address: "",
       city: "",
       state: "",
-      zipCode: ""
+      zip_code: ""
     });
   };
 
-  const handleEdit = (supplier: any) => {
-    setEditingSupplier(supplier);
-    setFormData({
-      name: supplier.name,
-      document: supplier.document,
-      email: supplier.email,
-      phone: supplier.phone,
-      address: supplier.address,
-      city: "",
-      state: "",
-      zipCode: ""
-    });
-    setIsDialogOpen(true);
-  };
-
-  const getStatusBadge = (status: string) => {
-    return status === 'active' 
-      ? <Badge className="bg-success text-success-foreground">Ativo</Badge>
-      : <Badge variant="secondary">Inativo</Badge>;
-  };
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -163,12 +251,12 @@ export const Suppliers = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="document">CNPJ/CPF</Label>
+                    <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
                     <Input
-                      id="document"
+                      id="cnpj_cpf"
                       placeholder="12.345.678/0001-90"
-                      value={formData.document}
-                      onChange={(e) => setFormData({...formData, document: e.target.value})}
+                      value={formData.cnpj_cpf}
+                      onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})}
                     />
                   </div>
                 </div>
@@ -225,12 +313,12 @@ export const Suppliers = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="zipCode">CEP</Label>
+                    <Label htmlFor="zip_code">CEP</Label>
                     <Input
-                      id="zipCode"
+                      id="zip_code"
                       placeholder="01234-567"
-                      value={formData.zipCode}
-                      onChange={(e) => setFormData({...formData, zipCode: e.target.value})}
+                      value={formData.zip_code}
+                      onChange={(e) => setFormData({...formData, zip_code: e.target.value})}
                     />
                   </div>
                 </div>
@@ -240,7 +328,8 @@ export const Suppliers = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary">
+                <Button onClick={handleSave} className="bg-gradient-primary" disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingSupplier ? "Atualizar" : "Cadastrar"}
                 </Button>
               </DialogFooter>
@@ -276,8 +365,7 @@ export const Suppliers = () => {
                     <TableHead>Nome/Razão Social</TableHead>
                     <TableHead>CNPJ/CPF</TableHead>
                     <TableHead>Contatos</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Localização</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -288,30 +376,37 @@ export const Suppliers = () => {
                         <div>
                           <p className="font-medium">{supplier.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            Última compra: {supplier.lastPurchase}
+                            Cadastrado em: {new Date(supplier.created_at || '').toLocaleDateString('pt-BR')}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{supplier.document}</TableCell>
+                      <TableCell className="font-mono text-sm">{supplier.cnpj_cpf || '-'}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" />
-                            {supplier.phone}
-                          </div>
-                          <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3" />
-                            {supplier.email}
-                          </div>
+                          {supplier.phone && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <Phone className="h-3 w-3" />
+                              {supplier.phone}
+                            </div>
+                          )}
+                          {supplier.email && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <Mail className="h-3 w-3" />
+                              {supplier.email}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate max-w-[200px]">{supplier.address}</span>
-                        </div>
+                        {supplier.city || supplier.state ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <MapPin className="h-3 w-3" />
+                            <span>{supplier.city}{supplier.city && supplier.state ? ', ' : ''}{supplier.state}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(supplier.status)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -325,6 +420,7 @@ export const Suppliers = () => {
                             variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(supplier)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,89 +22,200 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Search, TrendingUp, Calendar, Package } from "lucide-react";
+import { Plus, Search, TrendingUp, Calendar, Package, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
-const mockEntries = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    supplier: "TechParts Ltda",
-    product: "Mouse Gamer RGB",
-    quantity: 50,
-    unitPrice: 45.90,
-    totalValue: 2295.00,
-    invoice: "NF-001234"
-  },
-  {
-    id: "2",
-    date: "2024-01-14",
-    supplier: "Displays Pro",
-    product: "Monitor 24\"",
-    quantity: 25,
-    unitPrice: 280.00,
-    totalValue: 7000.00,
-    invoice: "NF-001235"
-  },
-  {
-    id: "3",
-    date: "2024-01-12",
-    supplier: "ComponenteX",
-    product: "Teclado Mecânico",
-    quantity: 30,
-    unitPrice: 120.00,
-    totalValue: 3600.00,
-    invoice: "NF-001236"
-  }
-];
+type StockMovement = Tables<'stock_movements'> & {
+  products?: { name: string } | null;
+  suppliers?: { name: string } | null;
+};
 
-const mockSuppliers = ["TechParts Ltda", "Displays Pro", "ComponenteX"];
-const mockProducts = ["Mouse Gamer RGB", "Teclado Mecânico", "Monitor 24\"", "Headset Wireless"];
+type Product = Tables<'products'>;
+type Supplier = Tables<'suppliers'>;
 
 export const StockIn = () => {
-  const [entries] = useState(mockEntries);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [entries, setEntries] = useState<StockMovement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    supplier: "",
-    product: "",
+    movement_date: new Date().toISOString().split('T')[0],
+    supplier_id: "",
+    product_id: "",
     quantity: "",
-    unitPrice: "",
-    invoice: "",
+    unit_price: "",
     notes: ""
   });
 
+  const [stats, setStats] = useState({
+    todayEntries: 0,
+    monthValue: 0,
+    monthProducts: 0
+  });
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Load stock movements (entries only)
+      const { data: movements, error: movementsError } = await supabase
+        .from('stock_movements')
+        .select(`
+          *,
+          products:product_id (name),
+          suppliers:supplier_id (name)
+        `)
+        .eq('user_id', user?.id)
+        .eq('movement_type', 'in')
+        .order('created_at', { ascending: false });
+
+      if (movementsError) throw movementsError;
+
+      // Load products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (productsError) throw productsError;
+
+      // Load suppliers
+      const { data: suppliersData, error: suppliersError } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (suppliersError) throw suppliersError;
+
+      setEntries(movements || []);
+      setProducts(productsData || []);
+      setSuppliers(suppliersData || []);
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+      const todayEntries = (movements || []).filter(m => 
+        m.movement_date?.split('T')[0] === today
+      ).length;
+
+      const monthValue = (movements || []).filter(m => 
+        m.movement_date?.slice(0, 7) === thisMonth
+      ).reduce((sum, m) => sum + ((m.quantity || 0) * (m.unit_price || 0)), 0);
+
+      const monthProducts = (movements || []).filter(m => 
+        m.movement_date?.slice(0, 7) === thisMonth
+      ).reduce((sum, m) => sum + (m.quantity || 0), 0);
+
+      setStats({
+        todayEntries,
+        monthValue,
+        monthProducts
+      });
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da página.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredEntries = entries.filter(entry =>
-    entry.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entry.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entry.invoice.toLowerCase().includes(searchTerm.toLowerCase())
+    (entry.suppliers?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (entry.products?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (entry.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSave = () => {
-    toast({
-      title: "Entrada registrada!",
-      description: "A entrada de estoque foi registrada com sucesso e o saldo foi atualizado."
-    });
-    setIsDialogOpen(false);
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+
+      const movementData = {
+        movement_date: formData.movement_date,
+        supplier_id: formData.supplier_id || null,
+        product_id: formData.product_id,
+        quantity: parseInt(formData.quantity),
+        unit_price: parseFloat(formData.unit_price) || 0,
+        total_value: parseInt(formData.quantity) * (parseFloat(formData.unit_price) || 0),
+        movement_type: 'in' as const,
+        notes: formData.notes || null,
+        user_id: user.id
+      };
+
+      const { error } = await supabase
+        .from('stock_movements')
+        .insert([movementData]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Entrada registrada!",
+        description: "A entrada de estoque foi registrada com sucesso e o saldo foi atualizado."
+      });
+
+      setIsDialogOpen(false);
+      resetForm();
+      loadData();
+    } catch (error) {
+      console.error('Error saving entry:', error);
+      toast({
+        title: "Erro ao registrar entrada",
+        description: "Não foi possível registrar a entrada. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
-      date: new Date().toISOString().split('T')[0],
-      supplier: "",
-      product: "",
+      movement_date: new Date().toISOString().split('T')[0],
+      supplier_id: "",
+      product_id: "",
       quantity: "",
-      unitPrice: "",
-      invoice: "",
+      unit_price: "",
       notes: ""
     });
   };
 
   const calculateTotal = () => {
     const quantity = parseFloat(formData.quantity) || 0;
-    const unitPrice = parseFloat(formData.unitPrice) || 0;
+    const unitPrice = parseFloat(formData.unit_price) || 0;
     return (quantity * unitPrice).toFixed(2);
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -136,23 +247,23 @@ export const StockIn = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="date">Data da Entrada</Label>
+                    <Label htmlFor="movement_date">Data da Entrada</Label>
                     <Input
-                      id="date"
+                      id="movement_date"
                       type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      value={formData.movement_date}
+                      onChange={(e) => setFormData({...formData, movement_date: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Fornecedor</Label>
-                    <Select value={formData.supplier} onValueChange={(value) => setFormData({...formData, supplier: value})}>
+                    <Select value={formData.supplier_id} onValueChange={(value) => setFormData({...formData, supplier_id: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o fornecedor" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockSuppliers.map((supplier) => (
-                          <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+                        {suppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -161,13 +272,13 @@ export const StockIn = () => {
                 
                 <div className="space-y-2">
                   <Label>Produto</Label>
-                  <Select value={formData.product} onValueChange={(value) => setFormData({...formData, product: value})}>
+                  <Select value={formData.product_id} onValueChange={(value) => setFormData({...formData, product_id: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o produto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockProducts.map((product) => (
-                        <SelectItem key={product} value={product}>{product}</SelectItem>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -185,14 +296,14 @@ export const StockIn = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="unitPrice">Preço Unitário</Label>
+                    <Label htmlFor="unit_price">Preço Unitário</Label>
                     <Input
-                      id="unitPrice"
+                      id="unit_price"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.unitPrice}
-                      onChange={(e) => setFormData({...formData, unitPrice: e.target.value})}
+                      value={formData.unit_price}
+                      onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
@@ -206,12 +317,12 @@ export const StockIn = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="invoice">Número da Nota Fiscal</Label>
+                  <Label htmlFor="notes">Observações</Label>
                   <Input
-                    id="invoice"
-                    placeholder="NF-001234"
-                    value={formData.invoice}
-                    onChange={(e) => setFormData({...formData, invoice: e.target.value})}
+                    id="notes"
+                    placeholder="Observações sobre a entrada..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
                   />
                 </div>
               </div>
@@ -220,7 +331,8 @@ export const StockIn = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-primary">
+                <Button onClick={handleSave} className="bg-gradient-primary" disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Registrar Entrada
                 </Button>
               </DialogFooter>
@@ -238,9 +350,9 @@ export const StockIn = () => {
               <TrendingUp className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">8</div>
+              <div className="text-2xl font-bold text-primary">{stats.todayEntries}</div>
               <p className="text-xs text-muted-foreground">
-                +2 desde ontem
+                Registros de hoje
               </p>
             </CardContent>
           </Card>
@@ -253,9 +365,9 @@ export const StockIn = () => {
               <Package className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ 25.890</div>
+              <div className="text-2xl font-bold text-primary">R$ {stats.monthValue.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">
-                +15% desde o mês passado
+                Em entradas este mês
               </p>
             </CardContent>
           </Card>
@@ -268,7 +380,7 @@ export const StockIn = () => {
               <Calendar className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">456</div>
+              <div className="text-2xl font-bold text-primary">{stats.monthProducts}</div>
               <p className="text-xs text-muted-foreground">
                 Unidades este mês
               </p>
@@ -289,7 +401,7 @@ export const StockIn = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por fornecedor, produto ou nota fiscal..."
+                  placeholder="Buscar por fornecedor, produto ou observações..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -307,19 +419,21 @@ export const StockIn = () => {
                     <TableHead>Quantidade</TableHead>
                     <TableHead>Preço Unit.</TableHead>
                     <TableHead>Valor Total</TableHead>
-                    <TableHead>NF</TableHead>
+                    <TableHead>Observações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell>{entry.date}</TableCell>
-                      <TableCell className="font-medium">{entry.supplier}</TableCell>
-                      <TableCell>{entry.product}</TableCell>
+                      <TableCell>
+                        {entry.movement_date ? new Date(entry.movement_date).toLocaleDateString('pt-BR') : '-'}
+                      </TableCell>
+                      <TableCell className="font-medium">{entry.suppliers?.name || 'Sem fornecedor'}</TableCell>
+                      <TableCell>{entry.products?.name || 'Produto não encontrado'}</TableCell>
                       <TableCell className="text-center font-semibold">{entry.quantity}</TableCell>
-                      <TableCell>R$ {entry.unitPrice.toFixed(2)}</TableCell>
-                      <TableCell className="font-semibold">R$ {entry.totalValue.toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-sm">{entry.invoice}</TableCell>
+                      <TableCell>R$ {(entry.unit_price || 0).toFixed(2)}</TableCell>
+                      <TableCell className="font-semibold">R$ {(entry.total_value || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-sm">{entry.notes || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
