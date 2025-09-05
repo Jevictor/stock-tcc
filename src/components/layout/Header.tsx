@@ -7,7 +7,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -15,6 +17,28 @@ interface HeaderProps {
 }
 
 export const Header = ({ onMenuToggle, showMenuButton = false }: HeaderProps) => {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso.",
+      });
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Erro no logout",
+        description: "Ocorreu um erro ao sair. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário';
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-elegant">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -45,7 +69,7 @@ export const Header = ({ onMenuToggle, showMenuButton = false }: HeaderProps) =>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-secondary">
                   <User className="h-4 w-4 text-secondary-foreground" />
                 </div>
-                <span className="hidden md:inline-block text-sm font-medium">Admin</span>
+                <span className="hidden md:inline-block text-sm font-medium">{userName}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-card border shadow-strong">
@@ -54,7 +78,7 @@ export const Header = ({ onMenuToggle, showMenuButton = false }: HeaderProps) =>
                 Meu Perfil
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
               </DropdownMenuItem>
