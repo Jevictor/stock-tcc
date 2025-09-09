@@ -77,7 +77,7 @@ export const Dashboard = () => {
       const lowStock = products?.filter(product => {
         const currentStock = product.current_stock || 0;
         const minStock = product.min_stock || 0;
-        return currentStock <= minStock;
+        return currentStock < minStock && minStock > 0;
       }) || [];
 
       setStats({

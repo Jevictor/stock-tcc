@@ -379,59 +379,15 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentStock">Estoque Atual</Label>
-                    <Input
-                      id="currentStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.current_stock}
-                      onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Estoque Mínimo</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.min_stock}
-                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStock">Estoque Máximo</Label>
-                    <Input
-                      id="maxStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.max_stock}
-                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
-                    />
-                  </div>
-                </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Estoque Mínimo</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.min_stock}
-                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStock">Estoque Máximo</Label>
-                    <Input
-                      id="maxStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.max_stock}
-                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentStock">Estoque Atual</Label>
+                  <Input
+                    id="currentStock"
+                    type="number"
+                    placeholder="0"
+                    value={formData.current_stock}
+                    onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
+                  />
                 </div>
               </div>
               
