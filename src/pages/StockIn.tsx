@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { formatCurrency } from "@/lib/utils";
 
 type StockMovement = Tables<'stock_movements'> & {
   products?: { name: string } | null;
@@ -207,7 +208,7 @@ export const StockIn = () => {
   const calculateTotal = () => {
     const quantity = parseFloat(formData.quantity) || 0;
     const unitPrice = parseFloat(formData.unit_price) || 0;
-    return (quantity * unitPrice).toFixed(2);
+    return formatCurrency(quantity * unitPrice);
   };
 
   if (loading) {
@@ -289,7 +290,7 @@ export const StockIn = () => {
                           <div className="flex flex-col">
                             <span>{product.name}</span>
                             <span className="text-xs text-muted-foreground">
-                              Estoque: {product.current_stock} | Preço: R$ {(product.cost_price || 0).toFixed(2)}
+                              Estoque: {product.current_stock} | Preço: {formatCurrency(product.cost_price || 0)}
                             </span>
                           </div>
                         </SelectItem>
@@ -299,7 +300,7 @@ export const StockIn = () => {
                   {selectedProduct && (
                     <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                       <div>Estoque atual: <span className="font-semibold">{selectedProduct.current_stock}</span></div>
-                      <div>Preço de custo padrão: <span className="font-semibold">R$ {(selectedProduct.cost_price || 0).toFixed(2)}</span></div>
+                      <div>Preço de custo padrão: <span className="font-semibold">{formatCurrency(selectedProduct.cost_price || 0)}</span></div>
                       <div>Unidade: <span className="font-semibold">{selectedProduct.unit_measure}</span></div>
                     </div>
                   )}
@@ -329,9 +330,9 @@ export const StockIn = () => {
                     {selectedProduct && parseFloat(formData.unit_price) !== (selectedProduct.cost_price || 0) && formData.unit_price && (
                       <div className="text-xs">
                         {parseFloat(formData.unit_price) > (selectedProduct.cost_price || 0) ? (
-                          <span className="text-warning">⚠️ Preço maior que o padrão (R$ {(selectedProduct.cost_price || 0).toFixed(2)})</span>
+                          <span className="text-warning">⚠️ Preço maior que o padrão ({formatCurrency(selectedProduct.cost_price || 0)})</span>
                         ) : (
-                          <span className="text-success">💡 Preço menor que o padrão (R$ {(selectedProduct.cost_price || 0).toFixed(2)})</span>
+                          <span className="text-success">💡 Preço menor que o padrão ({formatCurrency(selectedProduct.cost_price || 0)})</span>
                         )}
                       </div>
                     )}
@@ -340,7 +341,7 @@ export const StockIn = () => {
                     <Label>Valor Total</Label>
                     <Input
                       readOnly
-                      value={`R$ ${calculateTotal()}`}
+                      value={calculateTotal()}
                       className="bg-muted"
                     />
                   </div>
@@ -395,7 +396,7 @@ export const StockIn = () => {
               <Package className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ {stats.monthValue.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-primary">{formatCurrency(stats.monthValue)}</div>
               <p className="text-xs text-muted-foreground">
                 Em entradas este mês
               </p>
@@ -471,17 +472,17 @@ export const StockIn = () => {
                           <div>
                             <div>{entry.products?.name || 'Produto não encontrado'}</div>
                             <div className="text-xs text-muted-foreground">
-                              Preço padrão: R$ {productCostPrice.toFixed(2)}
+                              Preço padrão: {formatCurrency(productCostPrice)}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-semibold">{entry.quantity}</TableCell>
-                        <TableCell>R$ {entryUnitPrice.toFixed(2)}</TableCell>
-                        <TableCell className="font-semibold">R$ {(entry.total_value || 0).toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(entryUnitPrice)}</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency(entry.total_value || 0)}</TableCell>
                         <TableCell>
                           {priceDifference !== 0 && (
                             <div className={`text-xs font-medium ${priceDifference > 0 ? 'text-warning' : 'text-success'}`}>
-                              {priceDifference > 0 ? '+' : ''}R$ {priceDifference.toFixed(2)}
+                              {priceDifference > 0 ? '+' : ''}{formatCurrency(priceDifference)}
                               <div className="text-muted-foreground">
                                 ({((priceDifference / productCostPrice) * 100).toFixed(1)}%)
                               </div>

@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatCurrency } from "@/lib/utils";
 
 type Product = Tables<'products'> & {
   categories?: { name: string } | null;
@@ -59,7 +60,9 @@ export const Products = () => {
     unit_measure: "",
     cost_price: "",
     sale_price: "",
-    current_stock: ""
+    current_stock: "",
+    min_stock: "",
+    max_stock: ""
   });
 
   // Load products and categories
@@ -131,8 +134,8 @@ export const Products = () => {
         cost_price: parseFloat(formData.cost_price) || 0,
         sale_price: parseFloat(formData.sale_price) || 0,
         current_stock: parseInt(formData.current_stock) || 0,
-        min_stock: 0,
-        max_stock: 0,
+        min_stock: parseInt(formData.min_stock) || 0,
+        max_stock: parseInt(formData.max_stock) || 0,
         user_id: user.id
       };
 
@@ -187,7 +190,9 @@ export const Products = () => {
       unit_measure: product.unit_measure,
       cost_price: product.cost_price?.toString() || "",
       sale_price: product.sale_price?.toString() || "",
-      current_stock: product.current_stock?.toString() || ""
+      current_stock: product.current_stock?.toString() || "",
+      min_stock: product.min_stock?.toString() || "",
+      max_stock: product.max_stock?.toString() || ""
     });
     setIsDialogOpen(true);
   };
@@ -229,15 +234,21 @@ export const Products = () => {
       unit_measure: "",
       cost_price: "",
       sale_price: "",
-      current_stock: ""
+      current_stock: "",
+      min_stock: "",
+      max_stock: ""
     });
   };
 
   const getStatusBadge = (product: Product) => {
     const currentStock = product.current_stock || 0;
+    const minStock = product.min_stock || 0;
     
     if (currentStock === 0) {
       return <Badge variant="destructive">Sem Estoque</Badge>;
+    }
+    if (currentStock < minStock && minStock > 0) {
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Estoque Baixo</Badge>;
     }
     return <Badge className="bg-success text-success-foreground">Em Estoque</Badge>;
   };
@@ -368,15 +379,59 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="currentStock">Estoque Atual</Label>
-                  <Input
-                    id="currentStock"
-                    type="number"
-                    placeholder="0"
-                    value={formData.current_stock}
-                    onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentStock">Estoque Atual</Label>
+                    <Input
+                      id="currentStock"
+                      type="number"
+                      placeholder="0"
+                      value={formData.current_stock}
+                      onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minStock">Estoque Mínimo</Label>
+                    <Input
+                      id="minStock"
+                      type="number"
+                      placeholder="0"
+                      value={formData.min_stock}
+                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxStock">Estoque Máximo</Label>
+                    <Input
+                      id="maxStock"
+                      type="number"
+                      placeholder="0"
+                      value={formData.max_stock}
+                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
+                    />
+                  </div>
+                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minStock">Estoque Mínimo</Label>
+                    <Input
+                      id="minStock"
+                      type="number"
+                      placeholder="0"
+                      value={formData.min_stock}
+                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxStock">Estoque Máximo</Label>
+                    <Input
+                      id="maxStock"
+                      type="number"
+                      placeholder="0"
+                      value={formData.max_stock}
+                      onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
+                    />
+                  </div>
                 </div>
               </div>
               
@@ -440,7 +495,7 @@ export const Products = () => {
                         </div>
                       </TableCell>
                       <TableCell>{product.categories?.name || 'Sem categoria'}</TableCell>
-                      <TableCell>R$ {(product.sale_price || 0).toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(product.sale_price || 0)}</TableCell>
                       <TableCell>
                         <div className="text-center">
                           <p className="font-semibold">{product.current_stock || 0}</p>
@@ -531,7 +586,7 @@ export const Products = () => {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Preço:</span>
-                        <p className="font-medium">R$ {(product.sale_price || 0).toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrency(product.sale_price || 0)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Estoque:</span>

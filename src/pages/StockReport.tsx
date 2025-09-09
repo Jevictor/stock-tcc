@@ -7,6 +7,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Package, TrendingDown, TrendingUp, Filter } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { formatCurrency } from "@/lib/utils";
 
 interface ProductStock {
   id: string;
@@ -175,7 +176,7 @@ export const StockReport = () => {
     if (product.current_stock <= 0) {
       return <Badge variant="destructive">Sem estoque</Badge>;
     }
-    if (product.current_stock <= product.min_stock) {
+    if (product.current_stock < product.min_stock && product.min_stock > 0) {
       return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Estoque baixo</Badge>;
     }
     return <Badge className="bg-green-100 text-green-800">Normal</Badge>;
@@ -185,7 +186,7 @@ export const StockReport = () => {
     return total + (product.current_stock * (product.average_entry_price || product.cost_price));
   }, 0);
 
-  const lowStockCount = filteredProducts.filter(p => p.current_stock <= p.min_stock).length;
+  const lowStockCount = filteredProducts.filter(p => p.current_stock < p.min_stock && p.min_stock > 0).length;
   const outOfStockCount = filteredProducts.filter(p => p.current_stock <= 0).length;
 
   if (loading) {
@@ -226,7 +227,7 @@ export const StockReport = () => {
             <CardTitle className="text-sm text-muted-foreground">Valor Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">R$ {totalStockValue.toFixed(2)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalStockValue)}</p>
           </CardContent>
         </Card>
 
@@ -328,16 +329,16 @@ export const StockReport = () => {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Preço Custo</p>
-                      <p className="font-medium">R$ {product.cost_price.toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrency(product.cost_price)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Preço Médio Entrada</p>
-                      <p className="font-medium">R$ {(product.average_entry_price || 0).toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrency(product.average_entry_price || 0)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Valor Total</p>
                       <p className="font-medium">
-                        R$ {(product.current_stock * (product.average_entry_price || product.cost_price)).toFixed(2)}
+                        {formatCurrency(product.current_stock * (product.average_entry_price || product.cost_price))}
                       </p>
                     </div>
                   </div>
@@ -391,7 +392,7 @@ export const StockReport = () => {
                     <div className="text-right text-sm">
                       <p>{new Date(movement.movement_date).toLocaleDateString('pt-BR')}</p>
                       {movement.unit_price && (
-                        <p className="text-muted-foreground">R$ {movement.unit_price.toFixed(2)}/un</p>
+                        <p className="text-muted-foreground">{formatCurrency(movement.unit_price)}/un</p>
                       )}
                     </div>
                   </div>
