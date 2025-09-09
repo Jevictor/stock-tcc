@@ -23,6 +23,7 @@ export const Dashboard = () => {
   });
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -41,6 +42,8 @@ export const Dashboard = () => {
         .eq('user_id', user?.id);
 
       if (productsError) throw productsError;
+      
+      setProducts(products || []);
 
       // Load suppliers
       const { data: suppliers, error: suppliersError } = await supabase
@@ -183,7 +186,7 @@ export const Dashboard = () => {
           </Card>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Recent Movements */}
           <Card className="shadow-card">
             <CardHeader>
@@ -239,7 +242,7 @@ export const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-primary">
                 <AlertTriangle className="h-5 w-5 text-warning" />
-                Alertas de Estoque Baixo
+                Estoque Baixo
               </CardTitle>
               <CardDescription>
                 Produtos que precisam de reposição
@@ -253,22 +256,66 @@ export const Dashboard = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-primary truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          Estoque mínimo: {product.min_stock || 0}
+                          Estoque atual: {product.current_stock || 0} {product.unit_measure}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Mínimo: {product.min_stock || 0} {product.unit_measure}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold text-destructive">
-                          {product.current_stock || 0}
-                        </p>
-                        <div className="text-xs px-2 py-1 rounded-full bg-destructive/20 text-destructive whitespace-nowrap">
-                          Crítico
+                        <div className="text-xs px-2 py-1 rounded-full bg-warning/20 text-warning whitespace-nowrap">
+                          Baixo
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
                   <p className="text-muted-foreground text-center py-4">
-                    Todos os produtos estão com estoque adequado
+                    Nenhum produto com estoque baixo
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Out of Stock Alerts */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <Package className="h-5 w-5 text-destructive" />
+                Sem Estoque
+              </CardTitle>
+              <CardDescription>
+                Produtos que acabaram
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {products?.filter(product => (product.current_stock || 0) === 0).slice(0, 4).length > 0 ? (
+                  products?.filter(product => (product.current_stock || 0) === 0).slice(0, 4).map((product) => (
+                    <div key={product.id} className="flex items-start gap-3 py-2 border-b last:border-b-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-primary truncate">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Código: {product.code}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Unidade: {product.unit_measure}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-destructive">
+                          0
+                        </p>
+                        <div className="text-xs px-2 py-1 rounded-full bg-destructive/20 text-destructive whitespace-nowrap">
+                          Acabou
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    Nenhum produto sem estoque
                   </p>
                 )}
               </div>
