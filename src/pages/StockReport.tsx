@@ -385,7 +385,7 @@ export const StockReport = () => {
                           {movement.movement_type === 'in' ? 'Entrada' : 'Saída'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {movement.quantity} unidades
+                          {movement.quantity} {filteredProducts.find(p => p.id === movement.product_id)?.unit_measure || 'unidades'}
                         </p>
                       </div>
                     </div>

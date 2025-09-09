@@ -455,7 +455,7 @@ export const Products = () => {
                       <TableCell>
                         <div className="text-center">
                           <p className="font-semibold">{product.current_stock || 0}</p>
-                          <p className="text-xs text-muted-foreground">unidades</p>
+                          <p className="text-xs text-muted-foreground">{product.unit_measure}</p>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(product)}</TableCell>
@@ -546,7 +546,7 @@ export const Products = () => {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Estoque:</span>
-                        <p className="font-semibold">{product.current_stock || 0} unidades</p>
+                        <p className="font-semibold">{product.current_stock || 0} {product.unit_measure}</p>
                       </div>
                     </div>
                   </div>

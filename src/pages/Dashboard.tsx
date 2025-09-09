@@ -76,11 +76,11 @@ export const Dashboard = () => {
         return sum + (currentStock * salePrice);
       }, 0) || 0;
 
-      // Find low stock products
+      // Find low stock products (current stock less than minimum but not zero)
       const lowStock = products?.filter(product => {
         const currentStock = product.current_stock || 0;
         const minStock = product.min_stock || 0;
-        return currentStock < minStock && minStock > 0;
+        return currentStock > 0 && currentStock < minStock && minStock > 0;
       }) || [];
 
       setStats({
