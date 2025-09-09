@@ -80,8 +80,11 @@ export const Dashboard = () => {
       const lowStock = products?.filter(product => {
         const currentStock = product.current_stock || 0;
         const minStock = product.min_stock || 0;
-        return currentStock > 0 && currentStock < minStock && minStock > 0;
+        console.log(`Produto: ${product.name}, Estoque atual: ${currentStock}, Estoque mínimo: ${minStock}`);
+        return currentStock > 0 && currentStock <= minStock && minStock > 0;
       }) || [];
+
+      console.log('Produtos com estoque baixo encontrados:', lowStock.length);
 
       setStats({
         totalProducts,

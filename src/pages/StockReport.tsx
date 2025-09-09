@@ -173,10 +173,15 @@ export const StockReport = () => {
   });
 
   const getStockStatus = (product: ProductStock) => {
-    if (product.current_stock <= 0) {
+    const currentStock = product.current_stock || 0;
+    const minStock = product.min_stock || 0;
+    
+    console.log(`Status para ${product.name}: estoque atual=${currentStock}, mínimo=${minStock}`);
+    
+    if (currentStock <= 0) {
       return <Badge variant="destructive">Sem estoque</Badge>;
     }
-    if (product.current_stock < product.min_stock && product.min_stock > 0) {
+    if (currentStock <= minStock && minStock > 0) {
       return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Estoque baixo</Badge>;
     }
     return <Badge className="bg-green-100 text-green-800">Normal</Badge>;
@@ -186,7 +191,7 @@ export const StockReport = () => {
     return total + (product.current_stock * (product.average_entry_price || product.cost_price));
   }, 0);
 
-  const lowStockCount = filteredProducts.filter(p => p.current_stock < p.min_stock && p.min_stock > 0).length;
+  const lowStockCount = filteredProducts.filter(p => p.current_stock <= p.min_stock && p.min_stock > 0).length;
   const outOfStockCount = filteredProducts.filter(p => p.current_stock <= 0).length;
 
   if (loading) {
