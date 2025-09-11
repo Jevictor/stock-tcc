@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, dateStringToLocalTimestamp, formatDateLocal } from "@/lib/utils";
 
 type StockMovement = Tables<'stock_movements'> & {
   products?: { name: string } | null;
@@ -156,7 +156,7 @@ export const StockIn = () => {
       setSaving(true);
 
       const movementData = {
-        movement_date: formData.movement_date,
+        movement_date: dateStringToLocalTimestamp(formData.movement_date),
         supplier_id: formData.supplier_id || null,
         product_id: formData.product_id,
         quantity: parseInt(formData.quantity),
@@ -465,7 +465,7 @@ export const StockIn = () => {
                     return (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          {entry.movement_date ? new Date(entry.movement_date).toLocaleDateString('pt-BR') : '-'}
+                          {formatDateLocal(entry.movement_date)}
                         </TableCell>
                         <TableCell className="font-medium">{entry.suppliers?.name || 'Sem fornecedor'}</TableCell>
                         <TableCell>

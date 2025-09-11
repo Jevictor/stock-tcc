@@ -11,6 +11,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { toast } from "@/hooks/use-toast";
 import { TrendingDown, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { dateStringToLocalTimestamp, formatDateLocal } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -47,7 +48,8 @@ export const StockOut = () => {
   const [formData, setFormData] = useState({
     product_id: "",
     quantity: "",
-    customer_id: "none",
+    movement_date: new Date().toISOString().split('T')[0],
+    customer_id: "",
     reason: "",
     notes: ""
   });
@@ -151,10 +153,10 @@ export const StockOut = () => {
       product_id: formData.product_id,
       quantity: parseInt(formData.quantity),
       movement_type: 'out',
-      movement_date: new Date().toISOString(),
+      movement_date: dateStringToLocalTimestamp(formData.movement_date),
       reason: formData.reason,
       notes: formData.notes || null,
-      customer_id: formData.customer_id || null,
+      customer_id: formData.customer_id === "none" || formData.customer_id === "" ? null : formData.customer_id,
       user_id: user.id
     };
 
@@ -177,7 +179,8 @@ export const StockOut = () => {
       setFormData({
         product_id: "",
         quantity: "",
-        customer_id: "none",
+        movement_date: new Date().toISOString().split('T')[0],
+        customer_id: "",
         reason: "",
         notes: ""
       });
@@ -208,7 +211,7 @@ export const StockOut = () => {
     { 
       header: "Data", 
       accessorKey: "movement_date",
-      cell: (row: StockMovement) => new Date(row.movement_date).toLocaleDateString('pt-BR')
+      cell: (row: StockMovement) => formatDateLocal(row.movement_date)
     }
   ];
 
@@ -246,6 +249,17 @@ export const StockOut = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div>
+                  <Label htmlFor="movement_date">Data da Saída *</Label>
+                  <Input
+                    id="movement_date"
+                    type="date"
+                    value={formData.movement_date}
+                    onChange={(e) => setFormData({...formData, movement_date: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="product">Produto *</Label>
                   <Select value={formData.product_id} onValueChange={(value) => setFormData({...formData, product_id: value})}>
                     <SelectTrigger>
@@ -275,7 +289,7 @@ export const StockOut = () => {
 
                 <div>
                   <Label htmlFor="customer">Cliente (Opcional)</Label>
-                  <Select value={formData.customer_id === "" ? "none" : formData.customer_id} onValueChange={(value) => setFormData({...formData, customer_id: value === "none" ? "" : value})}>
+                  <Select value={formData.customer_id || "none"} onValueChange={(value) => setFormData({...formData, customer_id: value === "none" ? "" : value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um cliente (opcional)" />
                     </SelectTrigger>
@@ -348,7 +362,7 @@ export const StockOut = () => {
                         </p>
                       </div>
                       <div className="text-right text-sm">
-                        <p>{new Date(movement.movement_date).toLocaleDateString('pt-BR')}</p>
+                        <p>{formatDateLocal(movement.movement_date)}</p>
                         <p className="text-muted-foreground">{movement.reason}</p>
                       </div>
                     </div>

@@ -11,3 +11,22 @@ export function formatCurrency(value: number): string {
     currency: 'BRL'
   }).format(value)
 }
+
+// Função para converter data string (YYYY-MM-DD) para timestamp local ao meio-dia
+export function dateStringToLocalTimestamp(dateString: string): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0); // Meio-dia local
+  return date.toISOString();
+}
+
+// Função para exibir data sem problemas de timezone
+export function formatDateLocal(dateString: string | null): string {
+  if (!dateString) return '-';
+  
+  // Se a string já contém informação de hora, extrair apenas a data
+  const dateOnly = dateString.split('T')[0];
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  
+  return date.toLocaleDateString('pt-BR');
+}
