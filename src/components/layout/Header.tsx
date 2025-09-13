@@ -73,11 +73,6 @@ export const Header = ({ onMenuToggle, showMenuButton = false }: HeaderProps) =>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-card border shadow-strong">
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Meu Perfil
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair

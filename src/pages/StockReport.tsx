@@ -327,7 +327,7 @@ export const StockReport = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Estoque Atual</p>
                       <p className="font-medium">{product.current_stock} {product.unit_measure}</p>
@@ -337,13 +337,23 @@ export const StockReport = () => {
                       <p className="font-medium">{formatCurrency(product.cost_price)}</p>
                     </div>
                     <div>
+                      <p className="text-muted-foreground">Preço Venda</p>
+                      <p className="font-medium">{formatCurrency(product.sale_price)}</p>
+                    </div>
+                    <div>
                       <p className="text-muted-foreground">Preço Médio Entrada</p>
                       <p className="font-medium">{formatCurrency(product.average_entry_price || 0)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Valor Total</p>
+                      <p className="text-muted-foreground">Valor Total (Custo)</p>
                       <p className="font-medium">
                         {formatCurrency(product.current_stock * (product.average_entry_price || product.cost_price))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Valor Total (Venda)</p>
+                      <p className="font-medium">
+                        {formatCurrency(product.current_stock * product.sale_price)}
                       </p>
                     </div>
                   </div>

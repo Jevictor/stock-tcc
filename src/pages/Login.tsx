@@ -167,14 +167,6 @@ export const Login = () => {
             Controle total sobre produtos, fornecedores e movimentações em uma plataforma integrada.
           </p>
           <div className="grid grid-cols-2 gap-4 mt-8">
-            <div className="text-left space-y-2">
-              <div className="text-2xl font-bold">500+</div>
-              <div className="text-sm text-primary-foreground/80">Empresas Ativas</div>
-            </div>
-            <div className="text-left space-y-2">
-              <div className="text-2xl font-bold">99%</div>
-              <div className="text-sm text-primary-foreground/80">Uptime Garantido</div>
-            </div>
           </div>
         </div>
       </div>

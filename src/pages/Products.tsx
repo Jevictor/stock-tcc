@@ -122,19 +122,74 @@ export const Products = () => {
   const handleSave = async () => {
     if (!user) return;
 
+    // Validate required fields
+    if (!formData.code.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O código do produto é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O nome do produto é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.category_id) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A categoria do produto é obrigatória.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.unit_measure) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A unidade de medida é obrigatória.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.cost_price || parseFloat(formData.cost_price) < 0) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O preço de custo é obrigatório e deve ser maior que zero.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.min_stock || parseInt(formData.min_stock) < 0) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O estoque mínimo é obrigatório e deve ser maior ou igual a zero.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setSaving(true);
 
       const productData = {
-        code: formData.code,
-        name: formData.name,
+        code: formData.code.trim(),
+        name: formData.name.trim(),
         description: formData.description || null,
-        category_id: formData.category_id || null,
+        category_id: formData.category_id,
         unit_measure: formData.unit_measure,
-        cost_price: parseFloat(formData.cost_price) || 0,
+        cost_price: parseFloat(formData.cost_price),
         sale_price: parseFloat(formData.sale_price) || 0,
         current_stock: parseInt(formData.current_stock) || 0,
-        min_stock: parseInt(formData.min_stock) || 0,
+        min_stock: parseInt(formData.min_stock),
         max_stock: parseInt(formData.max_stock) || 0,
         user_id: user.id
       };
@@ -168,13 +223,23 @@ export const Products = () => {
       setEditingProduct(null);
       resetForm();
       loadProducts(); // Reload products
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast({
-        title: "Erro ao salvar produto",
-        description: "Não foi possível salvar o produto. Tente novamente.",
-        variant: "destructive"
-      });
+      
+      // Check for duplicate code error
+      if (error?.code === '23505' || error?.message?.includes('unique') || error?.message?.includes('duplicate')) {
+        toast({
+          title: "Código já existe",
+          description: "Já existe um produto cadastrado com este código. Por favor, utilize um código diferente.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Erro ao salvar produto",
+          description: "Não foi possível salvar o produto. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -297,21 +362,23 @@ export const Products = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="code">Código</Label>
+                    <Label htmlFor="code">Código *</Label>
                     <Input
                       id="code"
                       placeholder="SKU001"
                       value={formData.code}
                       onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome</Label>
+                    <Label htmlFor="name">Nome *</Label>
                     <Input
                       id="name"
                       placeholder="Nome do produto"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required
                     />
                   </div>
                 </div>
@@ -329,8 +396,8 @@ export const Products = () => {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Categoria</Label>
-                    <Select value={formData.category_id} onValueChange={(value) => setFormData({...formData, category_id: value})}>
+                    <Label>Categoria *</Label>
+                    <Select value={formData.category_id} onValueChange={(value) => setFormData({...formData, category_id: value})} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
@@ -342,8 +409,8 @@ export const Products = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Unidade</Label>
-                    <Select value={formData.unit_measure} onValueChange={(value) => setFormData({...formData, unit_measure: value})}>
+                    <Label>Unidade *</Label>
+                    <Select value={formData.unit_measure} onValueChange={(value) => setFormData({...formData, unit_measure: value})} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
@@ -358,14 +425,16 @@ export const Products = () => {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="costPrice">Preço de Custo</Label>
+                    <Label htmlFor="costPrice">Preço de Custo *</Label>
                     <Input
                       id="costPrice"
                       type="number"
                       step="0.01"
+                      min="0"
                       placeholder="0.00"
                       value={formData.cost_price}
                       onChange={(e) => setFormData({...formData, cost_price: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -393,13 +462,15 @@ export const Products = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minStock">Estoque Mínimo</Label>
+                    <Label htmlFor="minStock">Estoque Mínimo *</Label>
                     <Input
                       id="minStock"
                       type="number"
+                      min="0"
                       placeholder="0"
                       value={formData.min_stock}
                       onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
+                      required
                     />
                     <p className="text-xs text-muted-foreground">
                       Quando atingir este valor, será exibido alerta de estoque baixo
@@ -449,6 +520,7 @@ export const Products = () => {
                     <TableHead>Código</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
+                    <TableHead>Preço Custo</TableHead>
                     <TableHead>Preço Venda</TableHead>
                     <TableHead>Estoque</TableHead>
                     <TableHead>Status</TableHead>
@@ -468,6 +540,7 @@ export const Products = () => {
                         </div>
                       </TableCell>
                       <TableCell>{product.categories?.name || 'Sem categoria'}</TableCell>
+                      <TableCell>{formatCurrency(product.cost_price || 0)}</TableCell>
                       <TableCell>{formatCurrency(product.sale_price || 0)}</TableCell>
                       <TableCell>
                         <div className="text-center">
@@ -558,7 +631,11 @@ export const Products = () => {
                         <p className="font-medium">{product.categories?.name || 'Sem categoria'}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Preço:</span>
+                        <span className="text-muted-foreground">Preço Custo:</span>
+                        <p className="font-medium">{formatCurrency(product.cost_price || 0)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Preço Venda:</span>
                         <p className="font-medium">{formatCurrency(product.sale_price || 0)}</p>
                       </div>
                       <div>

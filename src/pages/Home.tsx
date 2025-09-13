@@ -213,9 +213,6 @@ export const Home = () => {
             <h2 className="text-3xl font-bold text-primary-foreground">
               Pronto para Revolucionar Seu Estoque?
             </h2>
-            <p className="text-lg text-primary-foreground/90">
-              Junte-se a milhares de empresas que já otimizaram sua gestão de inventário
-            </p>
             <Link to="/register">
               <Button size="lg" variant="secondary" className="shadow-elegant">
                 Começar Agora - É Grátis
@@ -237,7 +234,7 @@ export const Home = () => {
               <span className="text-lg font-bold text-primary">StockPro</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 StockPro. Todos os direitos reservados.
+              © 2025 StockPro. Todos os direitos reservados.
             </p>
           </div>
         </div>

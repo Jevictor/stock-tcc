@@ -89,18 +89,82 @@ export const Suppliers = () => {
   const handleSave = async () => {
     if (!user) return;
 
+    // Validate required fields
+    if (!formData.name.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Nome/Razão Social é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.cnpj_cpf.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "CNPJ/CPF é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "E-mail é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Endereço é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Cidade é obrigatória.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.state.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Estado é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.zip_code.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "CEP é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setSaving(true);
 
       const supplierData = {
-        name: formData.name,
-        cnpj_cpf: formData.cnpj_cpf || null,
-        email: formData.email || null,
+        name: formData.name.trim(),
+        cnpj_cpf: formData.cnpj_cpf.trim(),
+        email: formData.email.trim(),
         phone: formData.phone || null,
-        address: formData.address || null,
-        city: formData.city || null,
-        state: formData.state || null,
-        zip_code: formData.zip_code || null,
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        zip_code: formData.zip_code.trim(),
         user_id: user.id
       };
 
@@ -243,34 +307,37 @@ export const Suppliers = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome/Razão Social</Label>
+                    <Label htmlFor="name">Nome/Razão Social *</Label>
                     <Input
                       id="name"
                       placeholder="Nome do fornecedor"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
+                    <Label htmlFor="cnpj_cpf">CNPJ/CPF *</Label>
                     <Input
                       id="cnpj_cpf"
                       placeholder="12.345.678/0001-90"
                       value={formData.cnpj_cpf}
                       onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})}
+                      required
                     />
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
+                    <Label htmlFor="email">E-mail *</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="contato@fornecedor.com"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -285,41 +352,45 @@ export const Suppliers = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Endereço</Label>
+                  <Label htmlFor="address">Endereço *</Label>
                   <Input
                     id="address"
                     placeholder="Rua, número, bairro"
                     value={formData.address}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    required
                   />
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="city">Cidade</Label>
+                    <Label htmlFor="city">Cidade *</Label>
                     <Input
                       id="city"
                       placeholder="São Paulo"
                       value={formData.city}
                       onChange={(e) => setFormData({...formData, city: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="state">Estado</Label>
+                    <Label htmlFor="state">Estado *</Label>
                     <Input
                       id="state"
                       placeholder="SP"
                       value={formData.state}
                       onChange={(e) => setFormData({...formData, state: e.target.value})}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="zip_code">CEP</Label>
+                    <Label htmlFor="zip_code">CEP *</Label>
                     <Input
                       id="zip_code"
                       placeholder="01234-567"
                       value={formData.zip_code}
                       onChange={(e) => setFormData({...formData, zip_code: e.target.value})}
+                      required
                     />
                   </div>
                 </div>

@@ -18,7 +18,8 @@ export const Dashboard = () => {
   const [stats, setStats] = useState({
     totalProducts: 0,
     activeSuppliers: 0,
-    stockValue: 0,
+    stockValueCost: 0,
+    stockValueSale: 0,
     lowStockAlerts: 0
   });
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([]);
@@ -70,7 +71,12 @@ export const Dashboard = () => {
       // Calculate stats
       const totalProducts = products?.length || 0;
       const activeSuppliers = suppliers?.length || 0;
-      const stockValue = products?.reduce((sum, product) => {
+      const stockValueCost = products?.reduce((sum, product) => {
+        const currentStock = product.current_stock || 0;
+        const costPrice = product.cost_price || 0;
+        return sum + (currentStock * costPrice);
+      }, 0) || 0;
+      const stockValueSale = products?.reduce((sum, product) => {
         const currentStock = product.current_stock || 0;
         const salePrice = product.sale_price || 0;
         return sum + (currentStock * salePrice);
@@ -89,7 +95,8 @@ export const Dashboard = () => {
       setStats({
         totalProducts,
         activeSuppliers,
-        stockValue,
+        stockValueCost,
+        stockValueSale,
         lowStockAlerts: lowStock.length
       });
 
@@ -125,7 +132,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <Card className="shadow-card hover:shadow-elegant transition-all">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -159,16 +166,33 @@ export const Dashboard = () => {
           <Card className="shadow-card hover:shadow-elegant transition-all">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Valor do Estoque
+                Valor do Estoque (Custo)
+              </CardTitle>
+              <DollarSign className="h-5 w-5 text-accent" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">
+                R$ {stats.stockValueCost.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor total pelo preço de custo
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card hover:shadow-elegant transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Valor do Estoque (Venda)
               </CardTitle>
               <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">
-                R$ {stats.stockValue.toFixed(2)}
+                R$ {stats.stockValueSale.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Valor total em estoque
+                Valor total pelo preço de venda
               </p>
             </CardContent>
           </Card>
