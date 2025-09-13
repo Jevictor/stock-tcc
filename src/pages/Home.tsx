@@ -213,6 +213,8 @@ export const Home = () => {
             <h2 className="text-3xl font-bold text-primary-foreground">
               Pronto para Revolucionar Seu Estoque?
             </h2>
+            <p className="text-lg text-primary-foreground/90">
+            </p>
             <Link to="/register">
               <Button size="lg" variant="secondary" className="shadow-elegant">
                 Começar Agora - É Grátis
