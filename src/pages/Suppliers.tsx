@@ -287,7 +287,13 @@ export const Suppliers = () => {
             </p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+              setEditingSupplier(null);
+              resetForm();
+            }
+            setIsDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-primary shadow-elegant w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />

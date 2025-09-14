@@ -11,7 +11,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { toast } from "@/hooks/use-toast";
 import { TrendingDown, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { dateStringToLocalTimestamp, formatDateLocal } from "@/lib/utils";
+import { dateStringToLocalTimestamp, formatDateLocal, formatDateTimeLocal } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -211,7 +211,7 @@ export const StockOut = () => {
     { 
       header: "Data", 
       accessorKey: "movement_date",
-      cell: (row: StockMovement) => formatDateLocal(row.movement_date)
+      cell: (row: StockMovement) => formatDateTimeLocal(row.movement_date)
     }
   ];
 
@@ -362,7 +362,7 @@ export const StockOut = () => {
                         </p>
                       </div>
                       <div className="text-right text-sm">
-                        <p>{formatDateLocal(movement.movement_date)}</p>
+                        <p>{formatDateTimeLocal(movement.movement_date)}</p>
                         <p className="text-muted-foreground">{movement.reason}</p>
                       </div>
                     </div>

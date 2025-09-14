@@ -342,7 +342,13 @@ export const Products = () => {
             </p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+              setEditingProduct(null);
+              resetForm();
+            }
+            setIsDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-primary shadow-elegant w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
@@ -450,32 +456,20 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentStock">Estoque Atual</Label>
-                    <Input
-                      id="currentStock"
-                      type="number"
-                      placeholder="0"
-                      value={formData.current_stock}
-                      onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Estoque Mínimo *</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={formData.min_stock}
-                      onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Quando atingir este valor, será exibido alerta de estoque baixo
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minStock">Estoque Mínimo *</Label>
+                  <Input
+                    id="minStock"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formData.min_stock}
+                    onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quando atingir este valor, será exibido alerta de estoque baixo
+                  </p>
                 </div>
               </div>
               

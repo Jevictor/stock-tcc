@@ -5,6 +5,7 @@ import { Package, Truck, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Lo
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { formatDateTimeLocal } from "@/lib/utils";
 
 type Product = Tables<'products'>;
 type StockMovement = Tables<'stock_movements'> & {
@@ -249,7 +250,7 @@ export const Dashboard = () => {
                         <div className="flex justify-between items-center mt-1">
                           <span className="font-medium text-primary text-sm">{movement.quantity}</span>
                           <span className="text-xs text-muted-foreground">
-                            {movement.movement_date ? new Date(movement.movement_date).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                            {formatDateTimeLocal(movement.movement_date)}
                           </span>
                         </div>
                       </div>

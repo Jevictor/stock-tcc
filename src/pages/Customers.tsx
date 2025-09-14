@@ -69,8 +69,79 @@ export const Customers = () => {
     e.preventDefault();
     if (!user) return;
 
+    // Validate required fields
+    if (!formData.name.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Nome/Razão Social é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.cpf_cnpj.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "CNPJ/CPF é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "E-mail é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Endereço é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Cidade é obrigatória.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.state.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Estado é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.zip_code.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "CEP é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const customerData = {
-      ...formData,
+      name: formData.name.trim(),
+      cpf_cnpj: formData.cpf_cnpj.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone || null,
+      address: formData.address.trim(),
+      city: formData.city.trim(),
+      state: formData.state.trim(),
+      zip_code: formData.zip_code.trim(),
       user_id: user.id
     };
 
@@ -172,110 +243,127 @@ export const Customers = () => {
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5" />
-                {editingCustomer ? "Editar Cliente" : "Novo Cliente"}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label htmlFor="name">Nome *</Label>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogTrigger asChild>
+          <Button className="bg-gradient-primary shadow-elegant w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Cliente
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[600px] mx-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg">
+              {editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome/Razão Social *</Label>
                   <Input
                     id="name"
+                    placeholder="Nome do cliente"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     required
                   />
                 </div>
-                
-                <div>
-                  <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="cpf_cnpj">CNPJ/CPF *</Label>
                   <Input
                     id="cpf_cnpj"
+                    placeholder="12.345.678/0001-90"
                     value={formData.cpf_cnpj}
                     onChange={(e) => setFormData({...formData, cpf_cnpj: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="address">Endereço</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="city">Cidade</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="state">Estado</Label>
-                    <Input
-                      id="state"
-                      value={formData.state}
-                      onChange={(e) => setFormData({...formData, state: e.target.value})}
-                      maxLength={2}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="zip_code">CEP</Label>
-                  <Input
-                    id="zip_code"
-                    value={formData.zip_code}
-                    onChange={(e) => setFormData({...formData, zip_code: e.target.value})}
+                    required
                   />
                 </div>
               </div>
               
-              <Button type="submit" className="w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="contato@cliente.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    placeholder="(11) 99999-9999"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="address">Endereço *</Label>
+                <Input
+                  id="address"
+                  placeholder="Rua, número, bairro"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">Cidade *</Label>
+                  <Input
+                    id="city"
+                    placeholder="São Paulo"
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">Estado *</Label>
+                  <Input
+                    id="state"
+                    placeholder="SP"
+                    value={formData.state}
+                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zip_code">CEP *</Label>
+                  <Input
+                    id="zip_code"
+                    placeholder="01234-567"
+                    value={formData.zip_code}
+                    onChange={(e) => setFormData({...formData, zip_code: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 sm:gap-0 sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-gradient-primary w-full sm:w-auto">
                 {editingCustomer ? "Atualizar" : "Cadastrar"}
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       </div>
 
       <Card>
@@ -295,7 +383,7 @@ export const Customers = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>Nome/Razão Social</TableHead>
                       <TableHead>CPF/CNPJ</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Email</TableHead>
