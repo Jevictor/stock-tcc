@@ -11,7 +11,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { toast } from "@/hooks/use-toast";
 import { TrendingDown, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { dateStringToLocalTimestamp, formatDateLocal, formatDateTimeLocal } from "@/lib/utils";
+import { dateStringToLocalTimestamp, formatDateLocal, formatDateTimeLocal, getCurrentDateForInput } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -48,7 +48,7 @@ export const StockOut = () => {
   const [formData, setFormData] = useState({
     product_id: "",
     quantity: "",
-    movement_date: new Date().toISOString().split('T')[0],
+    movement_date: getCurrentDateForInput(),
     customer_id: "",
     reason: "",
     notes: ""
@@ -179,7 +179,7 @@ export const StockOut = () => {
       setFormData({
         product_id: "",
         quantity: "",
-        movement_date: new Date().toISOString().split('T')[0],
+        movement_date: getCurrentDateForInput(),
         customer_id: "",
         reason: "",
         notes: ""
@@ -275,17 +275,35 @@ export const StockOut = () => {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="quantity">Quantidade *</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                    required
-                    min="1"
-                  />
-                </div>
+                 <div>
+                   <Label htmlFor="quantity">Quantidade *</Label>
+                   <Input
+                     id="quantity"
+                     type="number"
+                     value={formData.quantity}
+                     onChange={(e) => {
+                       const selectedProduct = products.find(p => p.id === formData.product_id);
+                       let value = e.target.value;
+                       // Para unidade, aceitar apenas números inteiros
+                       if (selectedProduct?.unit_measure === "Unidade" && value.includes('.')) {
+                         value = Math.floor(parseFloat(value)).toString();
+                       }
+                       setFormData({...formData, quantity: value});
+                     }}
+                     required
+                     min="1"
+                     step={(() => {
+                       const selectedProduct = products.find(p => p.id === formData.product_id);
+                       return selectedProduct?.unit_measure === "Unidade" ? "1" : "0.01";
+                     })()}
+                   />
+                   {(() => {
+                     const selectedProduct = products.find(p => p.id === formData.product_id);
+                     return selectedProduct?.unit_measure === "Unidade" && (
+                       <p className="text-xs text-muted-foreground">Apenas números inteiros para produtos em unidade</p>
+                     );
+                   })()}
+                 </div>
 
                 <div>
                   <Label htmlFor="customer">Cliente (Opcional)</Label>

@@ -303,6 +303,12 @@ export const StockReport = () => {
     }
   }, [selectedProduct, user]);
 
+  // Resetar histórico quando mudar categoria
+  useEffect(() => {
+    setSelectedProduct("");
+    setMovements([]);
+  }, [selectedCategory]);
+
   const filteredProducts = products.filter(product => {
     if (selectedCategory && selectedCategory !== "all" && product.category_id !== selectedCategory) return false;
     return true;

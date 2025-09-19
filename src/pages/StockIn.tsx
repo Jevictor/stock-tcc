@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatCurrency, dateStringToLocalTimestamp, formatDateLocal, formatDateTimeLocal } from "@/lib/utils";
+import { formatCurrency, dateStringToLocalTimestamp, formatDateLocal, formatDateTimeLocal, getCurrentDateForInput } from "@/lib/utils";
 
 type StockMovement = Tables<'stock_movements'> & {
   products?: { name: string } | null;
@@ -49,7 +49,7 @@ export const StockIn = () => {
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    movement_date: new Date().toISOString().split('T')[0],
+    movement_date: getCurrentDateForInput(),
     supplier_id: "",
     product_id: "",
     quantity: "",
@@ -110,12 +110,13 @@ export const StockIn = () => {
       setSuppliers(suppliersData || []);
 
       // Calculate stats
-      const today = new Date().toISOString().split('T')[0];
+      const today = getCurrentDateForInput();
       const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-      const todayEntries = (movements || []).filter(m => 
-        m.movement_date?.split('T')[0] === today
-      ).length;
+      const todayEntries = (movements || []).filter(m => {
+        const movementDate = m.movement_date?.split('T')[0];
+        return movementDate === today;
+      }).length;
 
       const monthValue = (movements || []).filter(m => 
         m.movement_date?.slice(0, 7) === thisMonth
@@ -195,7 +196,7 @@ export const StockIn = () => {
 
   const resetForm = () => {
     setFormData({
-      movement_date: new Date().toISOString().split('T')[0],
+      movement_date: getCurrentDateForInput(),
       supplier_id: "",
       product_id: "",
       quantity: "",
@@ -307,16 +308,28 @@ export const StockIn = () => {
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantidade</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      placeholder="0"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                    />
-                  </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="quantity">Quantidade</Label>
+                     <Input
+                       id="quantity"
+                       type="number"
+                       placeholder="0"
+                       min="1"
+                       step={selectedProduct?.unit_measure === "Unidade" ? "1" : "0.01"}
+                       value={formData.quantity}
+                       onChange={(e) => {
+                         let value = e.target.value;
+                         // Para unidade, aceitar apenas números inteiros
+                         if (selectedProduct?.unit_measure === "Unidade" && value.includes('.')) {
+                           value = Math.floor(parseFloat(value)).toString();
+                         }
+                         setFormData({...formData, quantity: value});
+                       }}
+                     />
+                     {selectedProduct?.unit_measure === "Unidade" && (
+                       <p className="text-xs text-muted-foreground">Apenas números inteiros para produtos em unidade</p>
+                     )}
+                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="unit_price">Preço Unitário da Entrada</Label>
                     <Input

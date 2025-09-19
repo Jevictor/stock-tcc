@@ -456,21 +456,30 @@ export const Products = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="minStock">Estoque Mínimo *</Label>
-                  <Input
-                    id="minStock"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={formData.min_stock}
-                    onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Quando atingir este valor, será exibido alerta de estoque baixo
-                  </p>
-                </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="minStock">Estoque Mínimo *</Label>
+                   <Input
+                     id="minStock"
+                     type="number"
+                     min="0"
+                     step={formData.unit_measure === "Unidade" ? "1" : "0.01"}
+                     placeholder="0"
+                     value={formData.min_stock}
+                     onChange={(e) => {
+                       let value = e.target.value;
+                       // Para unidade, aceitar apenas números inteiros
+                       if (formData.unit_measure === "Unidade" && value.includes('.')) {
+                         value = Math.floor(parseFloat(value)).toString();
+                       }
+                       setFormData({...formData, min_stock: value});
+                     }}
+                     required
+                   />
+                   <p className="text-xs text-muted-foreground">
+                     Quando atingir este valor, será exibido alerta de estoque baixo
+                     {formData.unit_measure === "Unidade" && " (apenas números inteiros)"}
+                   </p>
+                 </div>
               </div>
               
               <DialogFooter className="gap-2 sm:gap-0">

@@ -46,3 +46,25 @@ export function formatDateTimeLocal(dateString: string | null): string {
     minute: '2-digit'
   });
 }
+
+// Função para obter a data atual no formato correto para input date (YYYY-MM-DD)
+export function getCurrentDateForInput(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Função para formatar data no padrão brasileiro (dd/mm/aaaa)
+export function formatDateBrazilian(dateString: string | null): string {
+  if (!dateString) return '-';
+  
+  const date = new Date(dateString);
+  
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
